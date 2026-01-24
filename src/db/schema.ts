@@ -380,6 +380,8 @@ export const applications = pgTable('Application', {
   propertyId: integer('propertyId').notNull(),
   tenantCognitoId: varchar('tenantCognitoId', { length: 255 }).notNull(),
   paymentDeadline: timestamp('paymentDeadline'),
+  keyDeliveryType: text('keyDeliveryType'),
+  keyDeliveryInstructions: text('keyDeliveryInstructions'),
   name: varchar('name', { length: 255 }).notNull(),
   email: varchar('email', { length: 255 }).notNull(),
   phoneNumber: varchar('phoneNumber', { length: 20 }).notNull(),
@@ -433,7 +435,9 @@ export const payments = pgTable('Payment', {
   dueDate: timestamp('dueDate').notNull(),
   paymentDate: timestamp('paymentDate').notNull(),
   paymentStatus: paymentStatusEnum('paymentStatus').notNull(),
+  paystackReference: text('paystackReference'),
   leaseId: integer('leaseId'),
+  applicationId: integer('applicationId'),
 });
 
 // Continue with remaining tables...

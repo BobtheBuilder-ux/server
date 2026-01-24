@@ -1,13 +1,15 @@
 import { Request, Response } from "express";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "../utils/database";
-import { applications, tenants, properties, locations, landlords, leases, payments } from "../db/schema";
+import { applications, tenants, properties, locations, landlords, leases, payments, landlordTenantRentals } from "../db/schema";
 import { sendEmail } from "../utils/emailService";
 import { 
   applicationSubmittedTemplate, 
-  applicationApprovedTemplate 
+  applicationApprovedTemplate,
+  propertyRentedNotificationTemplate
 } from "../utils/emailTemplates";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryService";
+import { generateLeaseAgreement } from "../utils/leaseAgreementGenerator";
 
 export const listApplications = async (
   req: Request,
@@ -160,7 +162,25 @@ export const createApplicationWithFiles = async (
       consentToVerification,
       consentToTenancyTerms,
       consentToPrivacyPolicy,
+      paymentId
     } = req.body;
+
+    // Validate payment
+    if (!paymentId) {
+      res.status(400).json({ message: "Payment is required before submitting application." });
+      return;
+    }
+
+    const paymentResult = await db.select().from(payments).where(eq(payments.id, Number(paymentId))).limit(1);
+    if (!paymentResult[0] || paymentResult[0].paymentStatus !== 'Paid') {
+        res.status(400).json({ message: "Invalid or unpaid payment reference provided." });
+        return;
+    }
+    // Also check if already used
+    if (paymentResult[0].applicationId) {
+        res.status(400).json({ message: "This payment has already been used for an application." });
+        return;
+    }
 
     // Get property details first
     const propertyResult = await db
@@ -236,18 +256,8 @@ export const createApplicationWithFiles = async (
       incomeProofUrl = incomeResult.url;
     }
 
-    // Create application and lease in transaction
+    // Create application in transaction (NO LEASE YET)
     const newApplication = await db.transaction(async (tx) => {
-      // Create lease first
-      const [lease] = await tx.insert(leases).values({
-        startDate: new Date(),
-        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-        rent: property.pricePerYear,
-        deposit: property.securityDeposit || 0,
-        propertyId: parseInt(propertyId),
-        tenantCognitoId: tenantCognitoId,
-      }).returning();
-
       // Create application
       const [application] = await tx.insert(applications).values({
         applicationDate: new Date(applicationDate),
@@ -287,8 +297,15 @@ export const createApplicationWithFiles = async (
         consentToPrivacyPolicy: consentToPrivacyPolicy === 'true',
         propertyId: parseInt(propertyId),
         tenantCognitoId: tenantCognitoId,
-        leaseId: lease.id,
+        leaseId: null, // No lease yet
       }).returning();
+
+      // Link payment to application
+      if (paymentId) {
+        await tx.update(payments)
+          .set({ applicationId: application.id })
+          .where(eq(payments.id, paymentId));
+      }
 
       // Get the full application with related data
       const fullApplicationResult = await tx
@@ -404,7 +421,25 @@ export const createApplication = async (
       consentToVerification,
       consentToTenancyTerms,
       consentToPrivacyPolicy,
+      paymentId
     } = req.body;
+
+    // Validate payment
+    if (!paymentId) {
+      res.status(400).json({ message: "Payment is required before submitting application." });
+      return;
+    }
+
+    const paymentResult = await db.select().from(payments).where(eq(payments.id, Number(paymentId))).limit(1);
+    if (!paymentResult[0] || paymentResult[0].paymentStatus !== 'Paid') {
+        res.status(400).json({ message: "Invalid or unpaid payment reference provided." });
+        return;
+    }
+    // Also check if already used
+    if (paymentResult[0].applicationId) {
+        res.status(400).json({ message: "This payment has already been used for an application." });
+        return;
+    }
 
     const propertyResult = await db
       .select()
@@ -454,16 +489,6 @@ export const createApplication = async (
     }
 
     const newApplication = await db.transaction(async (tx) => {
-      // Create lease first
-      const [lease] = await tx.insert(leases).values({
-        startDate: new Date(),
-        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-        rent: property.pricePerYear,
-        deposit: property.securityDeposit || 0,
-        propertyId: propertyId,
-        tenantCognitoId: tenantCognitoId,
-      }).returning();
-
       // Create application
       const [application] = await tx.insert(applications).values({
         applicationDate: new Date(applicationDate),
@@ -503,8 +528,15 @@ export const createApplication = async (
         consentToPrivacyPolicy,
         propertyId: propertyId,
         tenantCognitoId: tenantCognitoId,
-        leaseId: lease.id,
+        leaseId: null, // No lease yet
       }).returning();
+
+      // Link payment to application
+      if (paymentId) {
+        await tx.update(payments)
+          .set({ applicationId: application.id })
+          .where(eq(payments.id, Number(paymentId)));
+      }
 
       // Get full application data with joins for response
       const applicationWithDetails = await tx
@@ -575,7 +607,7 @@ export const updateApplicationStatus = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status, userType } = req.body;
+    const { status, userType, keyDeliveryType, keyDeliveryInstructions } = req.body;
     
     // Only admins can update application status
     if (userType !== 'admin') {
@@ -589,6 +621,7 @@ export const updateApplicationStatus = async (
       .leftJoin(properties, eq(applications.propertyId, properties.id))
       .leftJoin(locations, eq(properties.locationId, locations.id))
       .leftJoin(tenants, eq(applications.tenantCognitoId, tenants.cognitoId))
+      .leftJoin(landlords, eq(properties.landlordCognitoId, landlords.cognitoId))
       .where(eq(applications.id, Number(id)))
       .limit(1);
 
@@ -596,6 +629,7 @@ export const updateApplicationStatus = async (
     const property = applicationResult[0]?.Property;
     const location = applicationResult[0]?.Location;
     const tenant = applicationResult[0]?.Tenant;
+    const landlord = applicationResult[0]?.Landlord;
 
     if (!application) {
       res.status(404).json({ message: "Application not found." });
@@ -603,17 +637,86 @@ export const updateApplicationStatus = async (
     }
 
     if (status === "Approved") {
-      // Set payment deadline to 7 days from now
-      const paymentDeadline = new Date();
-      paymentDeadline.setDate(paymentDeadline.getDate() + 7);
+      if (!tenant || !property) {
+        res.status(400).json({ message: "Tenant or Property not found" });
+        return;
+      }
 
-      // Update application status to approved with payment deadline
+      // Create lease
+      const newLeaseResult = await db.insert(leases).values({
+        rent: property.pricePerYear,
+        deposit: property.securityDeposit || 0,
+        startDate: new Date(),
+        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        tenantCognitoId: tenant.cognitoId,
+        propertyId: property.id
+      }).returning();
+      
+      const newLease = newLeaseResult[0];
+
+      // Create LandlordTenantRental (Residence)
+      try {
+           const nextRentDueDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+           const leaseStartDate = new Date();
+           const leaseEndDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+           const landlordIdNumeric = landlord?.id;
+           const tenantIdNumeric = tenant.id;
+
+           if (landlordIdNumeric && tenantIdNumeric) {
+             await db.insert(landlordTenantRentals).values({
+               tenantId: tenantIdNumeric,
+               landlordId: landlordIdNumeric,
+               rentAmount: property.pricePerYear,
+               rentDueDate: nextRentDueDate,
+               leaseStartDate,
+               leaseEndDate,
+               paymentMethod: 'Paystack',
+               propertyAddress: location?.address || 'N/A',
+               isRentOverdue: false,
+               applicationFeeAdded: false,
+               securityDepositAdded: !!property.securityDeposit,
+               hasBeenEditedByLandlord: false,
+             }).onConflictDoNothing();
+           }
+      } catch (error) {
+          console.error("Error creating residence record:", error);
+      }
+
+      // Update application status to approved with lease info
       await db.update(applications)
         .set({ 
           status,
-          paymentDeadline 
+          leaseId: newLease.id,
+          keyDeliveryType,
+          keyDeliveryInstructions
         })
         .where(eq(applications.id, Number(id)));
+
+      // Update Payment with leaseId
+      // Find payment for this application
+      const paymentResult = await db.select().from(payments).where(eq(payments.applicationId, Number(id))).limit(1);
+      const payment = paymentResult[0];
+      if (payment) {
+          await db.update(payments).set({ leaseId: newLease.id }).where(eq(payments.id, payment.id));
+      }
+      
+      // Generate Lease Agreement PDF
+      const leaseAgreementPDF = await generateLeaseAgreement({
+             tenantName: tenant.name,
+             tenantEmail: tenant.email,
+             tenantPhone: tenant.phoneNumber,
+             propertyAddress: location?.address || 'N/A',
+             propertyName: property.name || 'Property',
+             landlordName: landlord?.name || 'N/A',
+             landlordEmail: landlord?.email || 'N/A',
+             landlordPhone: landlord?.phoneNumber || 'N/A',
+             rentAmount: newLease.rent,
+             securityDeposit: newLease.deposit,
+             leaseStartDate: newLease.startDate,
+             leaseEndDate: newLease.endDate,
+             paymentDate: payment?.paymentDate || new Date(),
+             paymentReference: `APP-${id}` // Or use payment ID if available
+      });
 
       // Send approval email to tenant using template
       await sendEmail({
@@ -623,11 +726,32 @@ export const updateApplicationStatus = async (
           tenant?.name || '',
           location?.address || '',
           application.propertyId,
-          property?.pricePerYear || 0,
-          (property?.pricePerYear || 0) * 0.15,
-          (property?.pricePerYear || 0) * 0.1
-        )
+          keyDeliveryType,
+          keyDeliveryInstructions
+        ),
+        attachments: [
+              {
+                filename: 'Lease_Agreement.pdf',
+                content: leaseAgreementPDF,
+                contentType: 'application/pdf',
+              }
+        ]
       });
+
+      // Send Landlord Notification
+         if (landlord?.email) {
+           await sendEmail({
+             to: landlord.email,
+             subject: propertyRentedNotificationTemplate.subject,
+             body: propertyRentedNotificationTemplate.body(
+               landlord.name,
+               location?.address || 'N/A',
+               tenant.name,
+               tenant.phoneNumber,
+               property.pricePerYear
+             )
+           });
+         }
     } else if (status === "Denied") {
       await db.update(applications)
         .set({ status })

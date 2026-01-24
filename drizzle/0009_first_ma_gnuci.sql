@@ -1,0 +1,1 @@
+ALTER TABLE "Landlord" ALTER COLUMN "phoneNumber" DROP NOT NULL;

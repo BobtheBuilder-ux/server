@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const betterAuthMiddleware_1 = require("../middleware/betterAuthMiddleware");
+const paymentControllers_1 = require("../controllers/paymentControllers");
+const router = express_1.default.Router();
+router.post("/initialize", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant"]), paymentControllers_1.initializePayment);
+router.get("/verify/:reference", paymentControllers_1.verifyPayment);
+router.get("/history/:leaseId", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "admin"]), paymentControllers_1.getPaymentHistory);
+router.post("/create", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "admin"]), paymentControllers_1.createPayment);
+exports.default = router;

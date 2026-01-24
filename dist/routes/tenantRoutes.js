@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const tenantControllers_1 = require("../controllers/tenantControllers");
+const router = express_1.default.Router();
+router.get("/:authId", tenantControllers_1.getTenant);
+router.put("/:authId", tenantControllers_1.updateTenant);
+router.post("/", tenantControllers_1.createTenant);
+router.get("/:authId/current-residences", tenantControllers_1.getCurrentResidences);
+router.get("/:authId/landlord-info", tenantControllers_1.getTenantLandlordInfo);
+router.post("/:authId/favorites/:propertyId", tenantControllers_1.addFavoriteProperty);
+router.delete("/:authId/favorites/:propertyId", tenantControllers_1.removeFavoriteProperty);
+exports.default = router;

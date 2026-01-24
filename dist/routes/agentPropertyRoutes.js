@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const agentPropertyMatchingController_1 = require("../controllers/agentPropertyMatchingController");
+const router = express_1.default.Router();
+router.post('/assign', agentPropertyMatchingController_1.assignPropertyToAgentEndpoint);
+router.get('/agent/:agentId', agentPropertyMatchingController_1.getAgentProperties);
+router.get('/property/:propertyId', agentPropertyMatchingController_1.getPropertyAgent);
+exports.default = router;

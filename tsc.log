@@ -1,0 +1,40 @@
+src/controllers/adminControllers.ts(10,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/adminControllers.ts(95,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/adminControllers.ts(136,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/adminControllers.ts(274,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/adminControllers.ts(920,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/agentControllers.ts(7,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/agentControllers.ts(21,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/agentPropertyMatchingController.ts(2,14): error TS6133: 'and' is declared but its value is never read.
+src/controllers/applicationControllers.ts(19,9): error TS6133: 'whereClause' is declared but its value is never read.
+src/controllers/applicationControllers.ts(214,11): error TS6133: 'existingProperty' is declared but its value is never read.
+src/controllers/applicationControllers.ts(458,11): error TS6133: 'existingProperty' is declared but its value is never read.
+src/controllers/applicationControllers.ts(728,3): error TS6133: 'req' is declared but its value is never read.
+src/controllers/applicationControllers.ts(732,11): error TS6133: 'now' is declared but its value is never read.
+src/controllers/cloudinaryUploadControllers.ts(13,1): error TS6133: 'fs' is declared but its value is never read.
+src/controllers/cloudinaryUploadControllers.ts(14,1): error TS6133: 'path' is declared but its value is never read.
+src/controllers/earningsControllers.ts(2,19): error TS6133: 'gt' is declared but its value is never read.
+src/controllers/earningsControllers.ts(4,51): error TS6133: 'tenants' is declared but its value is never read.
+src/controllers/earningsControllers.ts(4,60): error TS6133: 'locations' is declared but its value is never read.
+src/controllers/jobControllers.ts(2,28): error TS6133: 'lte' is declared but its value is never read.
+src/controllers/jobControllers.ts(617,11): error TS6133: 'total' is declared but its value is never read.
+src/controllers/landlordControllers.ts(6,14): error TS6133: 'and' is declared but its value is never read.
+src/controllers/leaseControllers.ts(6,33): error TS6133: 'req' is declared but its value is never read.
+src/controllers/notificationController.ts(2,32): error TS6133: 'lte' is declared but its value is never read.
+src/controllers/paymentControllers.ts(575,30): error TS6133: 'paymentType' is declared but its value is never read.
+src/db/schema.ts(13,3): error TS6133: 'foreignKey' is declared but its value is never read.
+src/db/schema.ts(14,3): error TS6133: 'index' is declared but its value is never read.
+src/db/schema.ts(16,1): error TS6133: 'relations' is declared but its value is never read.
+src/index.ts(85,15): error TS6133: 'req' is declared but its value is never read.
+src/index.ts(96,21): error TS6133: 'req' is declared but its value is never read.
+src/index.ts(132,24): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'Multer' is not assignable to parameter of type 'Application<Record<string, any>>'.
+      Type 'Multer' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+src/routes/auth.ts(3,1): error TS6133: 'toNodeHandler' is declared but its value is never read.
+src/routes/cloudinaryUploadRoutes.ts(2,8): error TS2300: Duplicate identifier 'multer'.
+src/routes/cloudinaryUploadRoutes.ts(18,8): error TS2300: Duplicate identifier 'multer'.
+src/routes/cloudinaryUploadRoutes.ts(40,16): error TS2528: A module cannot have multiple default exports.
+src/routes/cloudinaryUploadRoutes.ts(99,16): error TS2528: A module cannot have multiple default exports.
+src/routes/inspectionRoutes.ts(6,53): error TS6133: 'tenants' is declared but its value is never read.
+src/routes/inspectionRoutes.ts(259,7): error TS6133: 'paymentReference' is declared but its value is never read.

@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const smsController_1 = require("../controllers/smsController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const router = (0, express_1.Router)();
+const smsController = new smsController_1.SMSController();
+router.post('/webhook', smsController.handleWebhook);
+router.use((0, authMiddleware_1.authMiddleware)(['tenant', 'landlord', 'admin']));
+router.post('/rent-reminder', smsController.sendRentReminder);
+router.post('/payment-confirmation', smsController.sendPaymentConfirmation);
+router.post('/landlord-alert', smsController.sendLandlordAlert);
+router.post('/renewal-request', smsController.sendRenewalRequest);
+router.get('/history/:userId', smsController.getMessageHistory);
+router.get('/responses/:phoneNumber', (0, authMiddleware_1.authMiddleware)(['admin']), smsController.getResponseHistory);
+router.post('/overdue-reminders', (0, authMiddleware_1.authMiddleware)(['admin']), smsController.sendOverdueReminders);
+router.get('/stats', (0, authMiddleware_1.authMiddleware)(['admin']), smsController.getStats);
+exports.default = router;

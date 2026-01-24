@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const landlordControllers_1 = require("../controllers/landlordControllers");
+const router = express_1.default.Router();
+router.get("/:authId", landlordControllers_1.getLandlord);
+router.put("/:authId", landlordControllers_1.updateLandlord);
+router.get("/:authId/properties", landlordControllers_1.getLandlordProperties);
+router.get("/:authId/tenants", landlordControllers_1.getLandlordTenants);
+router.put("/:authId/edit-tenant", landlordControllers_1.editTenantInfo);
+router.post("/", landlordControllers_1.createLandlord);
+router.post("/register-with-code", landlordControllers_1.registerLandlordWithCode);
+router.post("/:authId/generate-tenant-link", landlordControllers_1.generateTenantRegistrationLink);
+router.get("/:authId/tenant-registration-link", landlordControllers_1.getTenantRegistrationLink);
+exports.default = router;

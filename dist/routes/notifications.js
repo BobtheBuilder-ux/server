@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const notificationController_1 = require("../controllers/notificationController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const router = express_1.default.Router();
+router.use((0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'agent', 'admin']));
+router.get('/', notificationController_1.notificationController.getUserNotifications);
+router.get('/unread-count', notificationController_1.notificationController.getUnreadCount);
+router.patch('/:id/read', notificationController_1.notificationController.markAsRead);
+router.patch('/mark-all-read', notificationController_1.notificationController.markAllAsRead);
+router.delete('/:id', notificationController_1.notificationController.deleteNotification);
+router.get('/activity-feed', notificationController_1.notificationController.getActivityFeed);
+router.post('/', notificationController_1.notificationController.createNotification);
+router.delete('/cleanup/expired', notificationController_1.notificationController.cleanupExpired);
+exports.default = router;

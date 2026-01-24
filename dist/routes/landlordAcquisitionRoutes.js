@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const landlordAcquisitionController_1 = require("../controllers/landlordAcquisitionController");
+const router = express_1.default.Router();
+router.get("/", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), landlordAcquisitionController_1.listAcquisitions);
+router.put("/:id/status", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), landlordAcquisitionController_1.updateAcquisitionStatus);
+exports.default = router;

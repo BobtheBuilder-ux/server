@@ -335,11 +335,12 @@ exports.applications = (0, pg_core_1.pgTable)('Application', {
     propertyId: (0, pg_core_1.integer)('propertyId').notNull(),
     tenantCognitoId: (0, pg_core_1.varchar)('tenantCognitoId', { length: 255 }).notNull(),
     paymentDeadline: (0, pg_core_1.timestamp)('paymentDeadline'),
+    keyDeliveryType: (0, pg_core_1.text)('keyDeliveryType'),
+    keyDeliveryInstructions: (0, pg_core_1.text)('keyDeliveryInstructions'),
     name: (0, pg_core_1.varchar)('name', { length: 255 }).notNull(),
     email: (0, pg_core_1.varchar)('email', { length: 255 }).notNull(),
     phoneNumber: (0, pg_core_1.varchar)('phoneNumber', { length: 20 }).notNull(),
     preferredMoveInDate: (0, pg_core_1.timestamp)('preferredMoveInDate'),
-    desiredLeaseDuration: (0, pg_core_1.varchar)('desiredLeaseDuration', { length: 100 }),
     gender: (0, pg_core_1.varchar)('gender', { length: 20 }),
     dateOfBirth: (0, pg_core_1.timestamp)('dateOfBirth'),
     nationality: (0, pg_core_1.varchar)('nationality', { length: 100 }),
@@ -386,7 +387,9 @@ exports.payments = (0, pg_core_1.pgTable)('Payment', {
     dueDate: (0, pg_core_1.timestamp)('dueDate').notNull(),
     paymentDate: (0, pg_core_1.timestamp)('paymentDate').notNull(),
     paymentStatus: (0, exports.paymentStatusEnum)('paymentStatus').notNull(),
+    paystackReference: (0, pg_core_1.text)('paystackReference'),
     leaseId: (0, pg_core_1.integer)('leaseId'),
+    applicationId: (0, pg_core_1.integer)('applicationId'),
 });
 exports.adminSettings = (0, pg_core_1.pgTable)('AdminSettings', {
     id: (0, pg_core_1.serial)('id').primaryKey(),

@@ -1,0 +1,1 @@
+ALTER TABLE "Application" DROP COLUMN "desiredLeaseDuration";

@@ -386,7 +386,6 @@ export const applications = pgTable('Application', {
   email: varchar('email', { length: 255 }).notNull(),
   phoneNumber: varchar('phoneNumber', { length: 20 }).notNull(),
   preferredMoveInDate: timestamp('preferredMoveInDate'),
-  desiredLeaseDuration: varchar('desiredLeaseDuration', { length: 100 }),
   gender: varchar('gender', { length: 20 }),
   dateOfBirth: timestamp('dateOfBirth'),
   nationality: varchar('nationality', { length: 100 }),

@@ -625,7 +625,7 @@ exports.applicationSubmittedTemplate = {
 };
 exports.applicationApprovedTemplate = {
     subject: "🎉 Your Rental Application Has Been Approved!",
-    body: (tenantName, propertyAddress, propertyId, annualRent, securityDeposit, applicationFee) => `
+    body: (tenantName, propertyAddress, propertyId, keyDeliveryType, keyDeliveryInstructions) => `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
       <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
         <h2 style="color: #10b981; margin-bottom: 20px;">🎉 Congratulations! Your Application Has Been Approved!</h2>
@@ -640,39 +640,26 @@ exports.applicationApprovedTemplate = {
           <h3 style="color: #047857; margin: 0 0 15px 0;">🏠 Property Details:</h3>
           <ul style="color: #374151; margin: 0; padding-left: 20px; list-style: none;">
             <li style="margin-bottom: 8px;"><strong>Property:</strong> ${propertyAddress}</li>
-            <li style="margin-bottom: 8px;"><strong>Annual Rent:</strong> ₦${annualRent.toLocaleString()}</li>
-            <li style="margin-bottom: 8px;"><strong>Caution Fee:</strong> ₦${securityDeposit.toLocaleString()}</li>
-            <li style="margin-bottom: 8px;"><strong>Application Fee:</strong> ₦${applicationFee.toLocaleString()}</li>
-            <li style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #10b981; font-weight: bold;">Approved</span></li>
+            <li style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #10b981; font-weight: bold;">Approved & Paid</span></li>
           </ul>
         </div>
         
         <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
-          <h3 style="color: #1e40af; margin: 0 0 15px 0;">💳 Next Steps - Payment Required:</h3>
+          <h3 style="color: #1e40af; margin: 0 0 15px 0;">🔑 Key Delivery Instructions:</h3>
           <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px; line-height: 1.6;">
-            To secure your rental, please proceed with the payment:
+            <strong>Method:</strong> ${keyDeliveryType || 'Not specified'}
           </p>
-          <ul style="color: #374151; margin: 0; padding-left: 20px;">
-            <li>Log in to your tenant dashboard</li>
-            <li>Navigate to the property details</li>
-            <li>Click on "Pay Now" to complete your payment</li>
-            <li>Your lease will be activated upon successful payment</li>
-          </ul>
+          <p style="color: #374151; margin: 0; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">
+            ${keyDeliveryInstructions || 'Please contact support for key delivery instructions.'}
+          </p>
         </div>
         
         <div style="text-align: center; margin: 20px 0;">
-          <a href="${process.env.CLIENT_URL}/tenants/residences/${propertyId}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Property & Pay Now</a>
-        </div>
-        
-        <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-          <h3 style="color: #92400e; margin: 0 0 10px 0;">⚠️ Important:</h3>
-          <p style="color: #374151; margin: 0; font-size: 16px; line-height: 1.6;">
-            Please complete your payment within <strong>48 hours</strong> to secure this property. Failure to do so may result in the approval being revoked.
-          </p>
+          <a href="${process.env.CLIENT_URL}/tenants/residences/${propertyId}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Property</a>
         </div>
         
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          We're excited to welcome you as our new tenant! If you have any questions about the payment process, please contact our support team.
+          We're excited to welcome you as our new tenant! If you have any questions, please contact our support team.
         </p>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">

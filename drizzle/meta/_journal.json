@@ -141,6 +141,13 @@
       "when": 1769283250432,
       "tag": "0019_sparkling_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1769443295869,
+      "tag": "0020_stale_gambit",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@ const schema_1 = require("../db/schema");
 const emailService_1 = require("../utils/emailService");
 const emailTemplates_1 = require("../utils/emailTemplates");
 const cloudinaryService_1 = require("../utils/cloudinaryService");
+const leaseAgreementGenerator_1 = require("../utils/leaseAgreementGenerator");
 const listApplications = async (req, res) => {
     try {
         const { userId, userType } = req.query;
@@ -110,7 +111,20 @@ exports.listApplications = listApplications;
 const createApplicationWithFiles = async (req, res) => {
     try {
         const files = req.files;
-        const { applicationDate, status, propertyId, tenantCognitoId, name, email, phoneNumber, preferredMoveInDate, desiredLeaseDuration, gender, dateOfBirth, nationality, maritalStatus, idType, durationAtCurrentAddress, employmentStatus, occupation, employerName, workAddress, monthlyIncome, durationAtCurrentJob, previousEmployerName, previousJobTitle, previousEmploymentDuration, reasonForLeavingPrevJob, numberOfOccupants, relationshipToOccupants, hasPets, isSmoker, accessibilityNeeds, reasonForLeaving, consentToInformation, consentToVerification, consentToTenancyTerms, consentToPrivacyPolicy, } = req.body;
+        const { applicationDate, status, propertyId, tenantCognitoId, name, email, phoneNumber, preferredMoveInDate, gender, dateOfBirth, nationality, maritalStatus, idType, durationAtCurrentAddress, employmentStatus, occupation, employerName, workAddress, monthlyIncome, durationAtCurrentJob, previousEmployerName, previousJobTitle, previousEmploymentDuration, reasonForLeavingPrevJob, numberOfOccupants, relationshipToOccupants, hasPets, isSmoker, accessibilityNeeds, reasonForLeaving, consentToInformation, consentToVerification, consentToTenancyTerms, consentToPrivacyPolicy, paymentId } = req.body;
+        if (!paymentId) {
+            res.status(400).json({ message: "Payment is required before submitting application." });
+            return;
+        }
+        const paymentResult = await database_1.db.select().from(schema_1.payments).where((0, drizzle_orm_1.eq)(schema_1.payments.id, Number(paymentId))).limit(1);
+        if (!paymentResult[0] || paymentResult[0].paymentStatus !== 'Paid') {
+            res.status(400).json({ message: "Invalid or unpaid payment reference provided." });
+            return;
+        }
+        if (paymentResult[0].applicationId) {
+            res.status(400).json({ message: "This payment has already been used for an application." });
+            return;
+        }
         const propertyResult = await database_1.db
             .select()
             .from(schema_1.properties)
@@ -159,14 +173,6 @@ const createApplicationWithFiles = async (req, res) => {
             incomeProofUrl = incomeResult.url;
         }
         const newApplication = await database_1.db.transaction(async (tx) => {
-            const [lease] = await tx.insert(schema_1.leases).values({
-                startDate: new Date(),
-                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-                rent: property.pricePerYear,
-                deposit: property.securityDeposit || 0,
-                propertyId: parseInt(propertyId),
-                tenantCognitoId: tenantCognitoId,
-            }).returning();
             const [application] = await tx.insert(schema_1.applications).values({
                 applicationDate: new Date(applicationDate),
                 status,
@@ -174,7 +180,6 @@ const createApplicationWithFiles = async (req, res) => {
                 email,
                 phoneNumber,
                 preferredMoveInDate: preferredMoveInDate ? new Date(preferredMoveInDate) : null,
-                desiredLeaseDuration,
                 gender,
                 dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
                 nationality,
@@ -205,8 +210,13 @@ const createApplicationWithFiles = async (req, res) => {
                 consentToPrivacyPolicy: consentToPrivacyPolicy === 'true',
                 propertyId: parseInt(propertyId),
                 tenantCognitoId: tenantCognitoId,
-                leaseId: lease.id,
+                leaseId: null,
             }).returning();
+            if (paymentId) {
+                await tx.update(schema_1.payments)
+                    .set({ applicationId: application.id })
+                    .where((0, drizzle_orm_1.eq)(schema_1.payments.id, paymentId));
+            }
             const fullApplicationResult = await tx
                 .select()
                 .from(schema_1.applications)
@@ -266,7 +276,20 @@ const createApplicationWithFiles = async (req, res) => {
 exports.createApplicationWithFiles = createApplicationWithFiles;
 const createApplication = async (req, res) => {
     try {
-        const { applicationDate, status, propertyId, tenantCognitoId, name, email, phoneNumber, preferredMoveInDate, desiredLeaseDuration, gender, dateOfBirth, nationality, maritalStatus, idType, idDocumentUrl, durationAtCurrentAddress, employmentStatus, occupation, employerName, workAddress, monthlyIncome, durationAtCurrentJob, incomeProofUrl, previousEmployerName, previousJobTitle, previousEmploymentDuration, reasonForLeavingPrevJob, numberOfOccupants, relationshipToOccupants, hasPets, isSmoker, accessibilityNeeds, reasonForLeaving, consentToInformation, consentToVerification, consentToTenancyTerms, consentToPrivacyPolicy, } = req.body;
+        const { applicationDate, status, propertyId, tenantCognitoId, name, email, phoneNumber, preferredMoveInDate, gender, dateOfBirth, nationality, maritalStatus, idType, idDocumentUrl, durationAtCurrentAddress, employmentStatus, occupation, employerName, workAddress, monthlyIncome, durationAtCurrentJob, incomeProofUrl, previousEmployerName, previousJobTitle, previousEmploymentDuration, reasonForLeavingPrevJob, numberOfOccupants, relationshipToOccupants, hasPets, isSmoker, accessibilityNeeds, reasonForLeaving, consentToInformation, consentToVerification, consentToTenancyTerms, consentToPrivacyPolicy, paymentId } = req.body;
+        if (!paymentId) {
+            res.status(400).json({ message: "Payment is required before submitting application." });
+            return;
+        }
+        const paymentResult = await database_1.db.select().from(schema_1.payments).where((0, drizzle_orm_1.eq)(schema_1.payments.id, Number(paymentId))).limit(1);
+        if (!paymentResult[0] || paymentResult[0].paymentStatus !== 'Paid') {
+            res.status(400).json({ message: "Invalid or unpaid payment reference provided." });
+            return;
+        }
+        if (paymentResult[0].applicationId) {
+            res.status(400).json({ message: "This payment has already been used for an application." });
+            return;
+        }
         const propertyResult = await database_1.db
             .select()
             .from(schema_1.properties)
@@ -303,14 +326,6 @@ const createApplication = async (req, res) => {
             return;
         }
         const newApplication = await database_1.db.transaction(async (tx) => {
-            const [lease] = await tx.insert(schema_1.leases).values({
-                startDate: new Date(),
-                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-                rent: property.pricePerYear,
-                deposit: property.securityDeposit || 0,
-                propertyId: propertyId,
-                tenantCognitoId: tenantCognitoId,
-            }).returning();
             const [application] = await tx.insert(schema_1.applications).values({
                 applicationDate: new Date(applicationDate),
                 status,
@@ -318,7 +333,6 @@ const createApplication = async (req, res) => {
                 email,
                 phoneNumber,
                 preferredMoveInDate: preferredMoveInDate ? new Date(preferredMoveInDate) : null,
-                desiredLeaseDuration,
                 gender,
                 dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
                 nationality,
@@ -349,8 +363,13 @@ const createApplication = async (req, res) => {
                 consentToPrivacyPolicy,
                 propertyId: propertyId,
                 tenantCognitoId: tenantCognitoId,
-                leaseId: lease.id,
+                leaseId: null,
             }).returning();
+            if (paymentId) {
+                await tx.update(schema_1.payments)
+                    .set({ applicationId: application.id })
+                    .where((0, drizzle_orm_1.eq)(schema_1.payments.id, Number(paymentId)));
+            }
             const applicationWithDetails = await tx
                 .select()
                 .from(schema_1.applications)
@@ -403,7 +422,7 @@ exports.createApplication = createApplication;
 const updateApplicationStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { status, userType } = req.body;
+        const { status, userType, keyDeliveryType, keyDeliveryInstructions } = req.body;
         if (userType !== 'admin') {
             res.status(403).json({ message: "Only administrators can approve or deny applications." });
             return;
@@ -414,30 +433,106 @@ const updateApplicationStatus = async (req, res) => {
             .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.applications.propertyId, schema_1.properties.id))
             .leftJoin(schema_1.locations, (0, drizzle_orm_1.eq)(schema_1.properties.locationId, schema_1.locations.id))
             .leftJoin(schema_1.tenants, (0, drizzle_orm_1.eq)(schema_1.applications.tenantCognitoId, schema_1.tenants.cognitoId))
+            .leftJoin(schema_1.landlords, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId))
             .where((0, drizzle_orm_1.eq)(schema_1.applications.id, Number(id)))
             .limit(1);
         const application = applicationResult[0]?.Application;
         const property = applicationResult[0]?.Property;
         const location = applicationResult[0]?.Location;
         const tenant = applicationResult[0]?.Tenant;
+        const landlord = applicationResult[0]?.Landlord;
         if (!application) {
             res.status(404).json({ message: "Application not found." });
             return;
         }
         if (status === "Approved") {
-            const paymentDeadline = new Date();
-            paymentDeadline.setDate(paymentDeadline.getDate() + 7);
+            if (!tenant || !property) {
+                res.status(400).json({ message: "Tenant or Property not found" });
+                return;
+            }
+            const newLeaseResult = await database_1.db.insert(schema_1.leases).values({
+                rent: property.pricePerYear,
+                deposit: property.securityDeposit || 0,
+                startDate: new Date(),
+                endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+                tenantCognitoId: tenant.cognitoId,
+                propertyId: property.id
+            }).returning();
+            const newLease = newLeaseResult[0];
+            try {
+                const nextRentDueDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+                const leaseStartDate = new Date();
+                const leaseEndDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+                const landlordIdNumeric = landlord?.id;
+                const tenantIdNumeric = tenant.id;
+                if (landlordIdNumeric && tenantIdNumeric) {
+                    await database_1.db.insert(schema_1.landlordTenantRentals).values({
+                        tenantId: tenantIdNumeric,
+                        landlordId: landlordIdNumeric,
+                        rentAmount: property.pricePerYear,
+                        rentDueDate: nextRentDueDate,
+                        leaseStartDate,
+                        leaseEndDate,
+                        paymentMethod: 'Paystack',
+                        propertyAddress: location?.address || 'N/A',
+                        isRentOverdue: false,
+                        applicationFeeAdded: false,
+                        securityDepositAdded: !!property.securityDeposit,
+                        hasBeenEditedByLandlord: false,
+                    }).onConflictDoNothing();
+                }
+            }
+            catch (error) {
+                console.error("Error creating residence record:", error);
+            }
             await database_1.db.update(schema_1.applications)
                 .set({
                 status,
-                paymentDeadline
+                leaseId: newLease.id,
+                keyDeliveryType,
+                keyDeliveryInstructions
             })
                 .where((0, drizzle_orm_1.eq)(schema_1.applications.id, Number(id)));
+            const paymentResult = await database_1.db.select().from(schema_1.payments).where((0, drizzle_orm_1.eq)(schema_1.payments.applicationId, Number(id))).limit(1);
+            const payment = paymentResult[0];
+            if (payment) {
+                await database_1.db.update(schema_1.payments).set({ leaseId: newLease.id }).where((0, drizzle_orm_1.eq)(schema_1.payments.id, payment.id));
+            }
+            const leaseAgreementPDF = await (0, leaseAgreementGenerator_1.generateLeaseAgreement)({
+                tenantName: tenant.name,
+                tenantEmail: tenant.email,
+                tenantPhone: tenant.phoneNumber,
+                propertyAddress: location?.address || 'N/A',
+                propertyName: property.name || 'Property',
+                landlordName: landlord?.name || 'N/A',
+                landlordEmail: landlord?.email || 'N/A',
+                landlordPhone: landlord?.phoneNumber || 'N/A',
+                rentAmount: newLease.rent,
+                securityDeposit: newLease.deposit,
+                leaseStartDate: newLease.startDate,
+                leaseEndDate: newLease.endDate,
+                paymentDate: payment?.paymentDate || new Date(),
+                paymentReference: `APP-${id}`
+            });
             await (0, emailService_1.sendEmail)({
                 to: tenant?.email || '',
                 subject: emailTemplates_1.applicationApprovedTemplate.subject,
-                body: emailTemplates_1.applicationApprovedTemplate.body(tenant?.name || '', location?.address || '', application.propertyId, property?.pricePerYear || 0, (property?.pricePerYear || 0) * 0.15, (property?.pricePerYear || 0) * 0.1)
+                body: emailTemplates_1.applicationApprovedTemplate.body(tenant?.name || '', location?.address || '', application.propertyId, keyDeliveryType, keyDeliveryInstructions),
+                attachments: [
+                    {
+                        filename: 'Lease_Agreement.pdf',
+                        content: leaseAgreementPDF,
+                        contentType: 'application/pdf',
+                    }
+                ]
             });
+            if (landlord?.email) {
+                await (0, emailService_1.sendEmail)({
+                    to: landlord.email,
+                    subject: emailTemplates_1.propertyRentedNotificationTemplate.subject,
+                    body: emailTemplates_1.propertyRentedNotificationTemplate.body(landlord.name, location?.address || 'N/A', tenant.name, tenant.phoneNumber, property.pricePerYear)
+                });
+            }
         }
         else if (status === "Denied") {
             await database_1.db.update(schema_1.applications)

@@ -16,16 +16,36 @@ export const initializePayment = async (
   try {
     const { leaseId, propertyId, tenantId, amount, email, paymentType } = req.body;
 
+    // Validate essential inputs
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      res.status(400).json({ message: "Invalid amount" });
+      return;
+    }
+    if (!email) {
+      res.status(400).json({ message: "Email is required" });
+      return;
+    }
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      console.error("PAYSTACK_SECRET_KEY is missing");
+      res.status(500).json({ message: "Payment service configuration error" });
+      return;
+    }
+
     let lease = null;
     let property = null;
 
     if (paymentType === "initial_payment" || paymentType === "deposit") {
+      if (!propertyId) {
+        res.status(400).json({ message: "Property ID is required for this payment type" });
+        return;
+      }
+
       // For initial payment and deposit, validate property exists
       const propertyResult = await db.select()
         .from(properties)
         .leftJoin(locations, eq(properties.locationId, locations.id))
         .leftJoin(landlords, eq(properties.landlordCognitoId, landlords.cognitoId))
-        .where(eq(properties.id, propertyId))
+        .where(eq(properties.id, Number(propertyId)))
         .limit(1);
       
       property = propertyResult[0] ? {
@@ -44,6 +64,11 @@ export const initializePayment = async (
         return;
       }
     } else {
+      if (!leaseId) {
+        res.status(400).json({ message: "Lease ID is required for this payment type" });
+        return;
+      }
+
       // For other payment types, validate lease exists
       const leaseResult = await db.select()
         .from(leases)
@@ -51,7 +76,7 @@ export const initializePayment = async (
         .leftJoin(properties, eq(leases.propertyId, properties.id))
         .leftJoin(locations, eq(properties.locationId, locations.id))
         .leftJoin(landlords, eq(properties.landlordCognitoId, landlords.cognitoId))
-        .where(eq(leases.id, leaseId))
+        .where(eq(leases.id, Number(leaseId)))
         .limit(1);
       
       lease = leaseResult[0] ? {
@@ -72,13 +97,13 @@ export const initializePayment = async (
 
     // Create payment record
     const [payment] = await db.insert(payments).values({
-      amountDue: amount,
+      amountDue: Number(amount),
       amountPaid: 0,
       dueDate: new Date(),
       paymentDate: new Date(),
       paymentStatus: "Pending",
       paystackReference: `payment_${Date.now()}_${Math.floor(Math.random() * 1000)}`, // Temporary ref, will update below
-      leaseId: (paymentType === "initial_payment" || paymentType === "deposit") ? null : leaseId,
+      leaseId: (paymentType === "initial_payment" || paymentType === "deposit") ? null : Number(leaseId),
       applicationId: null // will be linked later
     }).returning();
 
@@ -101,8 +126,8 @@ export const initializePayment = async (
         callback_url: `${process.env.CLIENT_URL}/payment/callback`,
         metadata: {
           paymentId: payment.id,
-          leaseId: (paymentType === "initial_payment" || paymentType === "deposit") ? null : leaseId,
-          propertyId: (paymentType === "initial_payment" || paymentType === "deposit") ? propertyId : null,
+          leaseId: (paymentType === "initial_payment" || paymentType === "deposit") ? null : Number(leaseId),
+          propertyId: (paymentType === "initial_payment" || paymentType === "deposit") ? Number(propertyId) : null,
           paymentType: paymentType,
           tenantId: (paymentType === "initial_payment" || paymentType === "deposit") ? tenantId : lease?.tenantCognitoId
         }
@@ -122,6 +147,11 @@ export const initializePayment = async (
     });
   } catch (error: any) {
     console.error("Payment initialization error:", error);
+    if (axios.isAxiosError(error)) {
+      console.error("Paystack API Error:", error.response?.data);
+      res.status(500).json({ message: `Payment Gateway Error: ${error.response?.data?.message || error.message}` });
+      return;
+    }
     res.status(500).json({ message: `Error initializing payment: ${error.message}` });
   }
 };

@@ -23,6 +23,7 @@ const betterAuthMiddleware = (allowedRoles) => {
             const [agentProfile] = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, session.user.id)).limit(1);
             const [adminProfile] = await database_1.db.select().from(schema_1.admins).where((0, drizzle_orm_1.eq)(schema_1.admins.userId, session.user.id)).limit(1);
             const [saleProfile] = await database_1.db.select().from(schema_1.saleUsers).where((0, drizzle_orm_1.eq)(schema_1.saleUsers.userId, session.user.id)).limit(1);
+            const [bloggerProfile] = await database_1.db.select().from(schema_1.bloggers).where((0, drizzle_orm_1.eq)(schema_1.bloggers.userId, session.user.id)).limit(1);
             if (!user) {
                 return res.status(401).json({ error: "User not found" });
             }
@@ -35,6 +36,8 @@ const betterAuthMiddleware = (allowedRoles) => {
                 userRole = "agent";
             else if (saleProfile)
                 userRole = "sale";
+            else if (bloggerProfile)
+                userRole = "blogger";
             else if (tenantProfile)
                 userRole = "tenant";
             if (allowedRoles && !allowedRoles.includes(userRole)) {
@@ -71,6 +74,7 @@ const getUserRole = async (userId) => {
         const [agentProfile] = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, userId)).limit(1);
         const [saleProfile] = await database_1.db.select().from(schema_1.saleUsers).where((0, drizzle_orm_1.eq)(schema_1.saleUsers.userId, userId)).limit(1);
         const [tenantProfile] = await database_1.db.select().from(schema_1.tenants).where((0, drizzle_orm_1.eq)(schema_1.tenants.userId, userId)).limit(1);
+        const [bloggerProfile] = await database_1.db.select().from(schema_1.bloggers).where((0, drizzle_orm_1.eq)(schema_1.bloggers.userId, userId)).limit(1);
         if (adminProfile)
             return "admin";
         if (landlordProfile)
@@ -79,6 +83,8 @@ const getUserRole = async (userId) => {
             return "agent";
         if (saleProfile)
             return "sale";
+        if (bloggerProfile)
+            return "blogger";
         if (tenantProfile)
             return "tenant";
         return user.role || "tenant";
@@ -144,6 +150,14 @@ const createUserProfile = async (userId, role, additionalData = {}) => {
                     email: user.email,
                     phoneNumber: user.phoneNumber,
                     ...additionalData,
+                });
+                break;
+            case "blogger":
+                await database_1.db.insert(schema_1.bloggers).values({
+                    userId: userId,
+                    displayName: user.name || user.email.split("@")[0],
+                    bio: additionalData?.bio || "",
+                    avatarUrl: additionalData?.avatarUrl || user.image || "",
                 });
                 break;
         }

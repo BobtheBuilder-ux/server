@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.tenantPropertiesRelations = exports.tenantFavoritesRelations = exports.jobApplicationRatingsRelations = exports.jobApplicationsRelations = exports.jobsRelations = exports.withdrawalsRelations = exports.agentRegistrationCodesRelations = exports.landlordRegistrationCodesRelations = exports.agentPropertiesRelations = exports.tasksRelations = exports.inspectionLimitsRelations = exports.inspectionsRelations = exports.paymentsRelations = exports.leasesRelations = exports.applicationsRelations = exports.locationsRelations = exports.propertiesRelations = exports.adminsRelations = exports.agentsRelations = exports.tenantsRelations = exports.landlordsRelations = exports.verificationsRelations = exports.sessionsRelations = exports.accountsRelations = exports.usersRelations = void 0;
+exports.blogPostTagsRelations = exports.blogTagsRelations = exports.blogCategoriesRelations = exports.blogPostsRelations = exports.bloggersRelations = exports.tenantPropertiesRelations = exports.tenantFavoritesRelations = exports.jobApplicationRatingsRelations = exports.jobApplicationsRelations = exports.jobsRelations = exports.withdrawalsRelations = exports.agentRegistrationCodesRelations = exports.landlordRegistrationCodesRelations = exports.agentPropertiesRelations = exports.tasksRelations = exports.inspectionLimitsRelations = exports.inspectionsRelations = exports.paymentsRelations = exports.leasesRelations = exports.applicationsRelations = exports.locationsRelations = exports.propertiesRelations = exports.adminsRelations = exports.agentsRelations = exports.tenantsRelations = exports.landlordsRelations = exports.verificationsRelations = exports.sessionsRelations = exports.accountsRelations = exports.usersRelations = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const schema_1 = require("./schema");
 exports.usersRelations = (0, drizzle_orm_1.relations)(schema_1.users, ({ one, many }) => ({
@@ -19,6 +19,10 @@ exports.usersRelations = (0, drizzle_orm_1.relations)(schema_1.users, ({ one, ma
     tenantProfile: one(schema_1.tenants, {
         fields: [schema_1.users.id],
         references: [schema_1.tenants.userId],
+    }),
+    bloggerProfile: one(schema_1.bloggers, {
+        fields: [schema_1.users.id],
+        references: [schema_1.bloggers.userId],
     }),
     accounts: many(schema_1.accounts),
     sessions: many(schema_1.sessions),
@@ -224,5 +228,39 @@ exports.tenantPropertiesRelations = (0, drizzle_orm_1.relations)(schema_1.tenant
     property: one(schema_1.properties, {
         fields: [schema_1.tenantProperties.propertyId],
         references: [schema_1.properties.id],
+    }),
+}));
+exports.bloggersRelations = (0, drizzle_orm_1.relations)(schema_1.bloggers, ({ one, many }) => ({
+    user: one(schema_1.users, {
+        fields: [schema_1.bloggers.userId],
+        references: [schema_1.users.id],
+    }),
+    posts: many(schema_1.blogPosts),
+}));
+exports.blogPostsRelations = (0, drizzle_orm_1.relations)(schema_1.blogPosts, ({ one, many }) => ({
+    author: one(schema_1.users, {
+        fields: [schema_1.blogPosts.authorUserId],
+        references: [schema_1.users.id],
+    }),
+    category: one(schema_1.blogCategories, {
+        fields: [schema_1.blogPosts.categoryId],
+        references: [schema_1.blogCategories.id],
+    }),
+    tags: many(schema_1.blogPostTags),
+}));
+exports.blogCategoriesRelations = (0, drizzle_orm_1.relations)(schema_1.blogCategories, ({ many }) => ({
+    posts: many(schema_1.blogPosts),
+}));
+exports.blogTagsRelations = (0, drizzle_orm_1.relations)(schema_1.blogTags, ({ many }) => ({
+    postTags: many(schema_1.blogPostTags),
+}));
+exports.blogPostTagsRelations = (0, drizzle_orm_1.relations)(schema_1.blogPostTags, ({ one }) => ({
+    post: one(schema_1.blogPosts, {
+        fields: [schema_1.blogPostTags.postId],
+        references: [schema_1.blogPosts.id],
+    }),
+    tag: one(schema_1.blogTags, {
+        fields: [schema_1.blogPostTags.tagId],
+        references: [schema_1.blogTags.id],
     }),
 }));

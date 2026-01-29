@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { auth } from "../auth";
 import { eq } from "drizzle-orm";
 import { db } from "../utils/database";
-import { users, landlords, tenants, agents, admins, saleUsers } from "../db/schema";
+import { users, landlords, tenants, agents, admins, saleUsers, bloggers } from "../db/schema";
 
 declare global {
   namespace Express {
@@ -49,6 +49,7 @@ export const betterAuthMiddleware = (allowedRoles?: string[]) => {
       const [agentProfile] = await db.select().from(agents).where(eq(agents.userId, session.user.id)).limit(1);
       const [adminProfile] = await db.select().from(admins).where(eq(admins.userId, session.user.id)).limit(1);
       const [saleProfile] = await db.select().from(saleUsers).where(eq(saleUsers.userId, session.user.id)).limit(1);
+      const [bloggerProfile] = await db.select().from(bloggers).where(eq(bloggers.userId, session.user.id)).limit(1);
 
       if (!user) {
         return res.status(401).json({ error: "User not found" });
@@ -60,6 +61,7 @@ export const betterAuthMiddleware = (allowedRoles?: string[]) => {
       else if (landlordProfile) userRole = "landlord";
       else if (agentProfile) userRole = "agent";
       else if (saleProfile) userRole = "sale";
+      else if (bloggerProfile) userRole = "blogger";
       else if (tenantProfile) userRole = "tenant";
 
       // Check role permissions
@@ -103,11 +105,13 @@ export const getUserRole = async (userId: string): Promise<string> => {
     const [agentProfile] = await db.select().from(agents).where(eq(agents.userId, userId)).limit(1);
     const [saleProfile] = await db.select().from(saleUsers).where(eq(saleUsers.userId, userId)).limit(1);
     const [tenantProfile] = await db.select().from(tenants).where(eq(tenants.userId, userId)).limit(1);
+    const [bloggerProfile] = await db.select().from(bloggers).where(eq(bloggers.userId, userId)).limit(1);
 
     if (adminProfile) return "admin";
     if (landlordProfile) return "landlord";
     if (agentProfile) return "agent";
     if (saleProfile) return "sale";
+    if (bloggerProfile) return "blogger";
     if (tenantProfile) return "tenant";
 
     return user.role || "tenant";
@@ -177,6 +181,14 @@ export const createUserProfile = async (userId: string, role: string, additional
           email: user.email,
           phoneNumber: user.phoneNumber,
           ...additionalData,
+        });
+        break;
+      case "blogger":
+        await db.insert(bloggers).values({
+          userId: userId,
+          displayName: user.name || user.email.split("@")[0],
+          bio: additionalData?.bio || "",
+          avatarUrl: additionalData?.avatarUrl || user.image || "",
         });
         break;
     }

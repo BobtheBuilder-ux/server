@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.landlordSurveys = exports.tenantSurveys = exports.adminSettings = exports.payments = exports.leases = exports.applications = exports.agentProperties = exports.tasks = exports.properties = exports.saleVerifications = exports.saleSellers = exports.saleListingDocuments = exports.saleListingAuditLog = exports.saleListings = exports.saleUsers = exports.admins = exports.agents = exports.tenants = exports.landlords = exports.agentRegistrationCodes = exports.landlordRegistrationCodes = exports.locations = exports.verifications = exports.sessions = exports.accounts = exports.users = exports.responseStatusEnum = exports.messageCategoryEnum = exports.messageStatusEnum = exports.messageTypeEnum = exports.landlordAcquisitionStatusEnum = exports.saleListingStatusEnum = exports.saleListingTypeEnum = exports.activityTypeEnum = exports.notificationPriorityEnum = exports.notificationTypeEnum = exports.experienceLevelEnum = exports.jobApplicationStatusEnum = exports.jobTypeEnum = exports.inspectionStatusEnum = exports.taskPriorityEnum = exports.taskStatusEnum = exports.childrenPreferenceEnum = exports.genderPreferenceEnum = exports.maritalPreferenceEnum = exports.withdrawalStatusEnum = exports.propertyStatusEnum = exports.paymentStatusEnum = exports.applicationStatusEnum = exports.propertyTypeEnum = void 0;
-exports.landlordTenantRentals = exports.renewalRequests = exports.messageAuditLog = exports.messageResponses = exports.smsMessages = exports.spatialRefSys = exports.tenantProperties = exports.tenantFavorites = exports.tenantEditAuditLog = exports.activityFeeds = exports.notifications = exports.jobApplicationRatings = exports.jobApplications = exports.jobs = exports.landlordAcquisitions = exports.withdrawals = exports.inspectionLimits = exports.inspections = exports.emailSubscriptions = void 0;
+exports.blogPostTags = exports.blogPosts = exports.blogTags = exports.blogCategories = exports.bloggers = exports.blogPostStatusEnum = exports.landlordTenantRentals = exports.renewalRequests = exports.messageAuditLog = exports.messageResponses = exports.smsMessages = exports.spatialRefSys = exports.tenantProperties = exports.tenantFavorites = exports.tenantEditAuditLog = exports.activityFeeds = exports.notifications = exports.jobApplicationRatings = exports.jobApplications = exports.jobs = exports.landlordAcquisitions = exports.withdrawals = exports.inspectionLimits = exports.inspections = exports.emailSubscriptions = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 exports.propertyTypeEnum = (0, pg_core_1.pgEnum)('PropertyType', ['SelfContain', 'Apartment', 'Bungalow', 'Duplex']);
 exports.applicationStatusEnum = (0, pg_core_1.pgEnum)('ApplicationStatus', ['Pending', 'Denied', 'Approved']);
@@ -709,4 +709,57 @@ exports.landlordTenantRentals = (0, pg_core_1.pgTable)('LandlordTenantRental', {
     updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
 }, (table) => ({
     tenantLandlordUnique: (0, pg_core_1.unique)().on(table.tenantId, table.landlordId),
+}));
+exports.blogPostStatusEnum = (0, pg_core_1.pgEnum)('BlogPostStatus', ['Draft', 'Published', 'Scheduled']);
+exports.bloggers = (0, pg_core_1.pgTable)('Blogger', {
+    id: (0, pg_core_1.serial)('id').primaryKey(),
+    userId: (0, pg_core_1.text)('userId').unique(),
+    displayName: (0, pg_core_1.varchar)('displayName', { length: 255 }).notNull(),
+    bio: (0, pg_core_1.text)('bio'),
+    avatarUrl: (0, pg_core_1.text)('avatarUrl'),
+    createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
+});
+exports.blogCategories = (0, pg_core_1.pgTable)('BlogCategory', {
+    id: (0, pg_core_1.serial)('id').primaryKey(),
+    name: (0, pg_core_1.varchar)('name', { length: 100 }).notNull().unique(),
+    slug: (0, pg_core_1.varchar)('slug', { length: 120 }).notNull().unique(),
+    createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
+});
+exports.blogTags = (0, pg_core_1.pgTable)('BlogTag', {
+    id: (0, pg_core_1.serial)('id').primaryKey(),
+    name: (0, pg_core_1.varchar)('name', { length: 100 }).notNull().unique(),
+    slug: (0, pg_core_1.varchar)('slug', { length: 120 }).notNull().unique(),
+    createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
+});
+exports.blogPosts = (0, pg_core_1.pgTable)('BlogPost', {
+    id: (0, pg_core_1.serial)('id').primaryKey(),
+    authorUserId: (0, pg_core_1.text)('authorUserId').notNull(),
+    title: (0, pg_core_1.varchar)('title', { length: 200 }).notNull(),
+    slug: (0, pg_core_1.varchar)('slug', { length: 220 }).notNull().unique(),
+    excerpt: (0, pg_core_1.varchar)('excerpt', { length: 300 }),
+    contentHtml: (0, pg_core_1.text)('contentHtml').notNull(),
+    featuredImageUrl: (0, pg_core_1.text)('featuredImageUrl'),
+    featuredImageAlt: (0, pg_core_1.varchar)('featuredImageAlt', { length: 160 }),
+    status: (0, exports.blogPostStatusEnum)('status').default('Draft').notNull(),
+    publishedAt: (0, pg_core_1.timestamp)('publishedAt'),
+    scheduledFor: (0, pg_core_1.timestamp)('scheduledFor'),
+    metaTitle: (0, pg_core_1.varchar)('metaTitle', { length: 70 }),
+    metaDescription: (0, pg_core_1.varchar)('metaDescription', { length: 160 }),
+    ogTitle: (0, pg_core_1.varchar)('ogTitle', { length: 100 }),
+    ogDescription: (0, pg_core_1.varchar)('ogDescription', { length: 200 }),
+    ogImageUrl: (0, pg_core_1.text)('ogImageUrl'),
+    categoryId: (0, pg_core_1.integer)('categoryId'),
+    readingTimeMinutes: (0, pg_core_1.integer)('readingTimeMinutes').default(1).notNull(),
+    internalLinks: (0, pg_core_1.json)('internalLinks'),
+    createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
+});
+exports.blogPostTags = (0, pg_core_1.pgTable)('BlogPostTag', {
+    postId: (0, pg_core_1.integer)('postId').notNull(),
+    tagId: (0, pg_core_1.integer)('tagId').notNull(),
+}, (table) => ({
+    pk: (0, pg_core_1.unique)().on(table.postId, table.tagId),
 }));

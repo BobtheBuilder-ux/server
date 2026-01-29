@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const blogControllers_1 = require("../controllers/blogControllers");
+const router = express_1.default.Router();
+router.get("/posts", blogControllers_1.listPublishedPosts);
+router.get("/posts/:slug", blogControllers_1.getPostBySlug);
+router.get("/posts/:id/related", blogControllers_1.getRelatedPosts);
+exports.default = router;

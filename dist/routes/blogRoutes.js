@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = tslib_1.__importDefault(require("express"));
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const betterAuthMiddleware_1 = require("../middleware/betterAuthMiddleware");
+const blogControllers_1 = require("../controllers/blogControllers");
+const router = express_1.default.Router();
+router.post("/admin/bloggers", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), blogControllers_1.adminCreateBlogger);
+router.get("/me/posts", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["blogger", "admin"]), blogControllers_1.getMyPosts);
+router.post("/posts", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["blogger", "admin"]), blogControllers_1.createOrUpdatePost);
+router.put("/posts", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["blogger", "admin"]), blogControllers_1.createOrUpdatePost);
+router.post("/posts/:id/publish", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["blogger", "admin"]), blogControllers_1.publishPost);
+router.delete("/posts/:id", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["blogger", "admin"]), blogControllers_1.deletePost);
+router.post("/admin/categories", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), blogControllers_1.upsertCategory);
+router.post("/admin/tags", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), blogControllers_1.upsertTag);
+exports.default = router;

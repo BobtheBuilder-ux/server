@@ -43,6 +43,8 @@ const verifyRoutes_1 = tslib_1.__importDefault(require("./routes/verifyRoutes"))
 const saleRoutes_1 = tslib_1.__importDefault(require("./routes/saleRoutes"));
 const publicLandlordAcquisitionRoutes_1 = tslib_1.__importDefault(require("./routes/publicLandlordAcquisitionRoutes"));
 const landlordAcquisitionRoutes_1 = tslib_1.__importDefault(require("./routes/landlordAcquisitionRoutes"));
+const blogRoutes_1 = tslib_1.__importDefault(require("./routes/blogRoutes"));
+const publicBlogRoutes_1 = tslib_1.__importDefault(require("./routes/publicBlogRoutes"));
 const app = (0, express_1.default)();
 const server = (0, http_1.createServer)(app);
 database_1.databaseService.connect().catch(console.error);
@@ -110,6 +112,8 @@ app.use("/notifications", notifications_1.default);
 app.use("/sales", saleRoutes_1.default);
 app.use("/landlord-acquisitions", publicLandlordAcquisitionRoutes_1.default);
 app.use("/landlord-acquisitions", landlordAcquisitionRoutes_1.default);
+app.use("/blog", publicBlogRoutes_1.default);
+app.use("/blog", blogRoutes_1.default);
 app.use("/sms", sms_1.default);
 app.use("/cron", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["admin"]), cronRoutes_1.default);
 app.use("/api/auth", auth_1.default);

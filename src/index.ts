@@ -46,6 +46,8 @@ import verifyRoutes from "./routes/verifyRoutes";
 import saleRoutes from "./routes/saleRoutes";
 import publicLandlordAcquisitionRoutes from "./routes/publicLandlordAcquisitionRoutes";
 import landlordAcquisitionRoutes from "./routes/landlordAcquisitionRoutes";
+import blogRoutes from "./routes/blogRoutes";
+import publicBlogRoutes from "./routes/publicBlogRoutes";
 
 const app = express();
 const server = createServer(app);
@@ -145,6 +147,9 @@ app.use("/sales", saleRoutes);
 // Landlord acquisition intake (public submit) and admin management
 app.use("/landlord-acquisitions", publicLandlordAcquisitionRoutes);
 app.use("/landlord-acquisitions", landlordAcquisitionRoutes);
+// Blog routes
+app.use("/blog", publicBlogRoutes);
+app.use("/blog", blogRoutes);
 app.use("/sms", smsRoutes);
 app.use("/cron", betterAuthMiddleware(["admin"]), cronRoutes);
 app.use("/api/auth", authRoutes); // Custom auth routes (must come before Better Auth handler)

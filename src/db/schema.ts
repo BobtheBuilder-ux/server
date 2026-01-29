@@ -788,4 +788,64 @@ export const landlordTenantRentals = pgTable('LandlordTenantRental', {
   tenantLandlordUnique: unique().on(table.tenantId, table.landlordId),
 }));
 
+// ===================== BLOG SYSTEM =====================
+export const blogPostStatusEnum = pgEnum('BlogPostStatus', ['Draft', 'Published', 'Scheduled']);
+
+export const bloggers = pgTable('Blogger', {
+  id: serial('id').primaryKey(),
+  userId: text('userId').unique(),
+  displayName: varchar('displayName', { length: 255 }).notNull(),
+  bio: text('bio'),
+  avatarUrl: text('avatarUrl'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+});
+
+export const blogCategories = pgTable('BlogCategory', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  slug: varchar('slug', { length: 120 }).notNull().unique(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+});
+
+export const blogTags = pgTable('BlogTag', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  slug: varchar('slug', { length: 120 }).notNull().unique(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+});
+
+export const blogPosts = pgTable('BlogPost', {
+  id: serial('id').primaryKey(),
+  authorUserId: text('authorUserId').notNull(),
+  title: varchar('title', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 220 }).notNull().unique(),
+  excerpt: varchar('excerpt', { length: 300 }),
+  contentHtml: text('contentHtml').notNull(),
+  featuredImageUrl: text('featuredImageUrl'),
+  featuredImageAlt: varchar('featuredImageAlt', { length: 160 }),
+  status: blogPostStatusEnum('status').default('Draft').notNull(),
+  publishedAt: timestamp('publishedAt'),
+  scheduledFor: timestamp('scheduledFor'),
+  metaTitle: varchar('metaTitle', { length: 70 }),
+  metaDescription: varchar('metaDescription', { length: 160 }),
+  ogTitle: varchar('ogTitle', { length: 100 }),
+  ogDescription: varchar('ogDescription', { length: 200 }),
+  ogImageUrl: text('ogImageUrl'),
+  categoryId: integer('categoryId'),
+  readingTimeMinutes: integer('readingTimeMinutes').default(1).notNull(),
+  internalLinks: json('internalLinks'), // array of slugs/urls referenced internally
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+});
+
+export const blogPostTags = pgTable('BlogPostTag', {
+  postId: integer('postId').notNull(),
+  tagId: integer('tagId').notNull(),
+}, (table) => ({
+  pk: unique().on(table.postId, table.tagId),
+}));
+
  

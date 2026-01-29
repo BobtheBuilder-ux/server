@@ -29,6 +29,11 @@ import {
   messageResponses,
   messageAuditLog,
   renewalRequests,
+  bloggers,
+  blogPosts,
+  blogCategories,
+  blogTags,
+  blogPostTags,
 } from './schema';
 
 // User relations
@@ -48,6 +53,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   tenantProfile: one(tenants, {
     fields: [users.id],
     references: [tenants.userId],
+  }),
+  bloggerProfile: one(bloggers, {
+    fields: [users.id],
+    references: [bloggers.userId],
   }),
   accounts: many(accounts),
   sessions: many(sessions),
@@ -301,5 +310,49 @@ export const tenantPropertiesRelations = relations(tenantProperties, ({ one }) =
   property: one(properties, {
     fields: [tenantProperties.propertyId],
     references: [properties.id],
+  }),
+}));
+
+// Blogger relations
+export const bloggersRelations = relations(bloggers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [bloggers.userId],
+    references: [users.id],
+  }),
+  posts: many(blogPosts),
+}));
+
+// Blog post relations
+export const blogPostsRelations = relations(blogPosts, ({ one, many }) => ({
+  author: one(users, {
+    fields: [blogPosts.authorUserId],
+    references: [users.id],
+  }),
+  category: one(blogCategories, {
+    fields: [blogPosts.categoryId],
+    references: [blogCategories.id],
+  }),
+  tags: many(blogPostTags),
+}));
+
+// Blog category relations
+export const blogCategoriesRelations = relations(blogCategories, ({ many }) => ({
+  posts: many(blogPosts),
+}));
+
+// Blog tag relations
+export const blogTagsRelations = relations(blogTags, ({ many }) => ({
+  postTags: many(blogPostTags),
+}));
+
+// Blog post tag relations
+export const blogPostTagsRelations = relations(blogPostTags, ({ one }) => ({
+  post: one(blogPosts, {
+    fields: [blogPostTags.postId],
+    references: [blogPosts.id],
+  }),
+  tag: one(blogTags, {
+    fields: [blogPostTags.tagId],
+    references: [blogTags.id],
   }),
 }));

@@ -46,6 +46,9 @@ const ROLE_PRIVILEGES: Record<string, AdminPrivilege[]> = {
   landlord: [
     AdminPrivilege.PROPERTY_MANAGEMENT
   ],
+  blogger: [
+    AdminPrivilege.ANALYTICS_ACCESS // Bloggers might need some access, adjust as needed
+  ],
   tenant: []
 };
 

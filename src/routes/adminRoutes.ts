@@ -5,6 +5,7 @@ import { adminCreateLandlord, listLandlords, impersonateLandlord } from "../cont
 import {
   getAnalytics,
   getAllUsers,
+  createUser,
   getAllProperties,
   updateUserStatus,
   deleteUser,
@@ -39,6 +40,7 @@ router.get("/analytics", authMiddleware(["admin"], [AdminPrivilege.ANALYTICS_ACC
 
 // User management routes - require user management privilege
 router.get("/users", authMiddleware(["admin"], [AdminPrivilege.USER_MANAGEMENT]), getAllUsers);
+router.post("/users", authMiddleware(["admin"], [AdminPrivilege.USER_MANAGEMENT]), createUser);
 router.put("/users/:userId/status", authMiddleware(["admin"], [AdminPrivilege.USER_MANAGEMENT]), updateUserStatus);
 router.delete("/users/:userId", authMiddleware(["admin"], [AdminPrivilege.USER_MANAGEMENT]), deleteUser);
 

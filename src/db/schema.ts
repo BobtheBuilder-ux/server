@@ -849,3 +849,12 @@ export const blogPostTags = pgTable('BlogPostTag', {
 }));
 
  
+export const adminAuditLogs = pgTable('AdminAuditLog', {
+  id: serial('id').primaryKey(),
+  adminUserId: text('adminUserId').notNull(),
+  action: varchar('action', { length: 50 }).notNull(),
+  targetUserId: text('targetUserId'),
+  details: json('details'),
+  ipAddress: varchar('ipAddress', { length: 45 }),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});

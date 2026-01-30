@@ -1,10 +1,145 @@
 import { Request, Response } from "express";
 import { eq, and, gte, desc, count, sql } from "drizzle-orm";
 import { db } from "../utils/database";
-import { properties, tenants, landlords, applications, payments, leases, agents, admins, adminSettings, landlordRegistrationCodes, agentRegistrationCodes, tasks, users, locations } from "../db/schema";
+import { properties, tenants, landlords, applications, payments, leases, agents, admins, adminSettings, landlordRegistrationCodes, agentRegistrationCodes, tasks, users, locations, bloggers, adminAuditLogs } from "../db/schema";
 import { addToEmailList } from "../utils/emailSubscriptionService";
 import { assignPropertyToAgent } from "./agentPropertyMatchingController";
 import { AdminPrivilege, getRolePrivileges, hasPrivilege } from "../middleware/authMiddleware";
+import { auth } from "../auth";
+import { sendEmail } from "../utils/emailService";
+import crypto from "crypto";
+
+export const createUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email, role } = req.body;
+    const adminUser = req.user; // Assuming req.user is populated by authMiddleware
+
+    if (!email || !role) {
+      res.status(400).json({ message: "Email and role are required" });
+      return;
+    }
+
+    if (!['agent', 'blogger'].includes(role)) {
+      res.status(400).json({ message: "Invalid role. Only 'agent' and 'blogger' are allowed." });
+      return;
+    }
+
+    // Check if user already exists
+    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (existingUser.length > 0) {
+      res.status(400).json({ message: "User with this email already exists" });
+      return;
+    }
+
+    // Generate secure random password
+    // Minimum 8 chars, at least one uppercase, one lowercase, one number, one special char
+    const generatePassword = () => {
+      const length = 12;
+      const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+      let retVal = "";
+      for (let i = 0, n = charset.length; i < length; ++i) {
+        retVal += charset.charAt(Math.floor(Math.random() * n));
+      }
+      return retVal;
+    };
+
+    const password = generatePassword();
+
+    // Sanitize headers to avoid Content-Length mismatch
+    const headers = { ...req.headers };
+    delete headers['content-length'];
+    
+    // Create user using Better Auth
+    const result = await auth.api.signUpEmail({
+      body: {
+        email,
+        password,
+        name: email.split('@')[0], // Default name from email
+        role,
+        callbackURL: `${process.env.CLIENT_URL}/auth/verify-email`,
+      },
+      headers: headers as any,
+    });
+
+    if (!result.user) {
+      res.status(500).json({ message: "Failed to create user" });
+      return;
+    }
+
+    // If agent, create agent record
+    if (role === 'agent') {
+      await db.insert(agents).values({
+        cognitoId: result.user.id,
+        name: email.split('@')[0],
+        email,
+        userId: result.user.id,
+      });
+    } else if (role === 'blogger') {
+      await db.insert(bloggers).values({
+        userId: result.user.id,
+        displayName: email.split('@')[0],
+      });
+    }
+
+    // Audit Log
+    try {
+      await db.insert(adminAuditLogs).values({
+        adminUserId: adminUser?.id || 'system',
+        action: 'CREATE_USER',
+        targetUserId: result.user.id,
+        details: { email, role, createdByEmail: adminUser?.email },
+        ipAddress: req.ip || (req.socket.remoteAddress as string),
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError);
+    }
+
+    // Send email with credentials
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Welcome to HomeMatch - Your Account Credentials",
+        body: `
+          <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #059669; margin: 0;">HomeMatch</h1>
+                <p style="color: #6b7280; margin: 5px 0 0 0;">Your Rental Platform</p>
+              </div>
+              
+              <div style="background-color: #f9fafb; padding: 30px; border-radius: 8px;">
+                <h2 style="color: #111827; margin: 0 0 20px 0;">Account Created</h2>
+                <p style="color: #374151; margin: 0 0 15px 0;">An account has been created for you with the role: <strong>${role}</strong>.</p>
+                
+                <div style="background-color: #ffffff; padding: 15px; border-radius: 4px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                  <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+                  <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
+                </div>
+                
+                <p style="color: #374151; margin: 0 0 25px 0;">Please log in and change your password immediately.</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${process.env.CLIENT_URL}/signin" style="background-color: #059669; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Login to Dashboard</a>
+                </div>
+              </div>
+            </body>
+          </html>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError);
+      // Continue execution, but maybe warn?
+    }
+
+    res.status(201).json({ message: "User created successfully", user: result.user });
+  } catch (error: any) {
+    console.error("Create user error:", error);
+    res.status(500).json({ message: `Error creating user: ${error.message}` });
+  }
+};
 
 export const getAnalytics = async (
   _req: Request,

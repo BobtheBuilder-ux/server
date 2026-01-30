@@ -31,6 +31,9 @@ const ROLE_PRIVILEGES = {
     landlord: [
         AdminPrivilege.PROPERTY_MANAGEMENT
     ],
+    blogger: [
+        AdminPrivilege.ANALYTICS_ACCESS
+    ],
     tenant: []
 };
 const authMiddleware = (allowedRoles, requiredPrivileges) => {

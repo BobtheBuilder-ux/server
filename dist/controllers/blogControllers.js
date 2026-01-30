@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.upsertTag = exports.upsertCategory = exports.getRelatedPosts = exports.getPostBySlug = exports.listPublishedPosts = exports.deletePost = exports.publishPost = exports.createOrUpdatePost = exports.getMyPosts = exports.adminCreateBlogger = void 0;
+exports.upsertTag = exports.upsertCategory = exports.getRelatedPosts = exports.getPostBySlug = exports.listPublishedPosts = exports.deletePost = exports.publishPost = exports.createOrUpdatePost = exports.getMyPosts = exports.getBloggerProfile = exports.adminCreateBlogger = exports.getTags = exports.getCategories = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const database_1 = require("../utils/database");
 const schema_1 = require("../db/schema");
@@ -10,6 +10,26 @@ const computeReadingTime = (html) => {
     const words = text ? text.split(" ").length : 0;
     return Math.max(1, Math.round(words / 200));
 };
+const getCategories = async (req, res) => {
+    try {
+        const categories = await database_1.db.select().from(schema_1.blogCategories).orderBy(schema_1.blogCategories.name);
+        return res.json(categories);
+    }
+    catch (err) {
+        return res.status(500).json({ error: err?.message || "Failed to fetch categories" });
+    }
+};
+exports.getCategories = getCategories;
+const getTags = async (req, res) => {
+    try {
+        const tags = await database_1.db.select().from(schema_1.blogTags).orderBy(schema_1.blogTags.name);
+        return res.json(tags);
+    }
+    catch (err) {
+        return res.status(500).json({ error: err?.message || "Failed to fetch tags" });
+    }
+};
+exports.getTags = getTags;
 const adminCreateBlogger = async (req, res) => {
     try {
         const { userId, email, name, bio, avatarUrl } = req.body || {};
@@ -34,6 +54,23 @@ const adminCreateBlogger = async (req, res) => {
     }
 };
 exports.adminCreateBlogger = adminCreateBlogger;
+const getBloggerProfile = async (req, res) => {
+    try {
+        if (!req.user)
+            return res.status(401).json({ error: "Unauthorized" });
+        const [profile] = await database_1.db.select().from(schema_1.bloggers).where((0, drizzle_orm_1.eq)(schema_1.bloggers.userId, req.user.id)).limit(1);
+        if (!profile) {
+            await (0, betterAuthMiddleware_1.createUserProfile)(req.user.id, "blogger", { displayName: req.user.name || req.user.email.split('@')[0] });
+            const [newProfile] = await database_1.db.select().from(schema_1.bloggers).where((0, drizzle_orm_1.eq)(schema_1.bloggers.userId, req.user.id)).limit(1);
+            return res.json(newProfile);
+        }
+        return res.json(profile);
+    }
+    catch (err) {
+        return res.status(500).json({ error: err?.message || "Failed to fetch profile" });
+    }
+};
+exports.getBloggerProfile = getBloggerProfile;
 const getMyPosts = async (req, res) => {
     try {
         if (!req.user)
@@ -248,6 +285,10 @@ const upsertCategory = async (req, res) => {
             return res.json(updated);
         }
         else {
+            const [existing] = await database_1.db.select().from(schema_1.blogCategories).where((0, drizzle_orm_1.eq)(schema_1.blogCategories.slug, slug)).limit(1);
+            if (existing) {
+                return res.json(existing);
+            }
             const [created] = await database_1.db.insert(schema_1.blogCategories).values({ name, slug }).returning();
             return res.json(created);
         }

@@ -174,7 +174,7 @@ export const auth = betterAuth({
     before: createAuthMiddleware(async (ctx) => {
       // Validate role assignment during registration
       if (ctx.path === "/sign-up/email" && ctx.body?.role) {
-        const allowedRoles = ["tenant", "landlord", "agent", "sale", "admin"];
+        const allowedRoles = ["tenant", "landlord", "agent", "sale", "admin", "blogger"];
         if (!allowedRoles.includes(ctx.body.role)) {
           throw new Error(`Invalid role: ${ctx.body.role}. Allowed roles are: ${allowedRoles.join(", ")}`);
         }

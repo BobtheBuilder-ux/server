@@ -1,12 +1,126 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAdminActivityLog = exports.checkUserPrivilege = exports.getPrivilegeMatrix = exports.getAllPrivileges = exports.updateUserRole = exports.getUserPrivileges = exports.getTaskStats = exports.deleteTask = exports.updateTask = exports.getTasks = exports.createTask = exports.assignCodeToAgent = exports.getAgentRegistrationStats = exports.getAgentRegistrations = exports.getLandlordRegistrationStats = exports.getLandlordRegistrations = exports.getAllAgents = exports.getAgent = exports.getAdmin = exports.createAdmin = exports.createAgent = exports.updateAdminSettings = exports.getAdminSettings = exports.deleteProperty = exports.updatePropertyStatus = exports.deleteUser = exports.updateUserStatus = exports.getAllProperties = exports.getAllUsers = exports.getAnalytics = void 0;
+exports.getAdminActivityLog = exports.checkUserPrivilege = exports.getPrivilegeMatrix = exports.getAllPrivileges = exports.updateUserRole = exports.getUserPrivileges = exports.getTaskStats = exports.deleteTask = exports.updateTask = exports.getTasks = exports.createTask = exports.assignCodeToAgent = exports.getAgentRegistrationStats = exports.getAgentRegistrations = exports.getLandlordRegistrationStats = exports.getLandlordRegistrations = exports.getAllAgents = exports.getAgent = exports.getAdmin = exports.createAdmin = exports.createAgent = exports.updateAdminSettings = exports.getAdminSettings = exports.deleteProperty = exports.updatePropertyStatus = exports.deleteUser = exports.updateUserStatus = exports.getAllProperties = exports.getAllUsers = exports.getAnalytics = exports.createUser = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const database_1 = require("../utils/database");
 const schema_1 = require("../db/schema");
 const emailSubscriptionService_1 = require("../utils/emailSubscriptionService");
 const agentPropertyMatchingController_1 = require("./agentPropertyMatchingController");
 const authMiddleware_1 = require("../middleware/authMiddleware");
+const auth_1 = require("../auth");
+const emailService_1 = require("../utils/emailService");
+const createUser = async (req, res) => {
+    try {
+        const { email, role } = req.body;
+        const adminUser = req.user;
+        if (!email || !role) {
+            res.status(400).json({ message: "Email and role are required" });
+            return;
+        }
+        if (!['agent', 'blogger'].includes(role)) {
+            res.status(400).json({ message: "Invalid role. Only 'agent' and 'blogger' are allowed." });
+            return;
+        }
+        const existingUser = await database_1.db.select().from(schema_1.users).where((0, drizzle_orm_1.eq)(schema_1.users.email, email)).limit(1);
+        if (existingUser.length > 0) {
+            res.status(400).json({ message: "User with this email already exists" });
+            return;
+        }
+        const generatePassword = () => {
+            const length = 12;
+            const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+            let retVal = "";
+            for (let i = 0, n = charset.length; i < length; ++i) {
+                retVal += charset.charAt(Math.floor(Math.random() * n));
+            }
+            return retVal;
+        };
+        const password = generatePassword();
+        const headers = { ...req.headers };
+        delete headers['content-length'];
+        const result = await auth_1.auth.api.signUpEmail({
+            body: {
+                email,
+                password,
+                name: email.split('@')[0],
+                role,
+                callbackURL: `${process.env.CLIENT_URL}/auth/verify-email`,
+            },
+            headers: headers,
+        });
+        if (!result.user) {
+            res.status(500).json({ message: "Failed to create user" });
+            return;
+        }
+        if (role === 'agent') {
+            await database_1.db.insert(schema_1.agents).values({
+                cognitoId: result.user.id,
+                name: email.split('@')[0],
+                email,
+                userId: result.user.id,
+            });
+        }
+        else if (role === 'blogger') {
+            await database_1.db.insert(schema_1.bloggers).values({
+                userId: result.user.id,
+                displayName: email.split('@')[0],
+            });
+        }
+        try {
+            await database_1.db.insert(schema_1.adminAuditLogs).values({
+                adminUserId: adminUser?.id || 'system',
+                action: 'CREATE_USER',
+                targetUserId: result.user.id,
+                details: { email, role, createdByEmail: adminUser?.email },
+                ipAddress: req.ip || req.socket.remoteAddress,
+            });
+        }
+        catch (auditError) {
+            console.error("Failed to create audit log:", auditError);
+        }
+        try {
+            await (0, emailService_1.sendEmail)({
+                to: email,
+                subject: "Welcome to HomeMatch - Your Account Credentials",
+                body: `
+          <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #059669; margin: 0;">HomeMatch</h1>
+                <p style="color: #6b7280; margin: 5px 0 0 0;">Your Rental Platform</p>
+              </div>
+              
+              <div style="background-color: #f9fafb; padding: 30px; border-radius: 8px;">
+                <h2 style="color: #111827; margin: 0 0 20px 0;">Account Created</h2>
+                <p style="color: #374151; margin: 0 0 15px 0;">An account has been created for you with the role: <strong>${role}</strong>.</p>
+                
+                <div style="background-color: #ffffff; padding: 15px; border-radius: 4px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                  <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+                  <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
+                </div>
+                
+                <p style="color: #374151; margin: 0 0 25px 0;">Please log in and change your password immediately.</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${process.env.CLIENT_URL}/signin" style="background-color: #059669; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Login to Dashboard</a>
+                </div>
+              </div>
+            </body>
+          </html>
+        `,
+            });
+        }
+        catch (emailError) {
+            console.error("Failed to send welcome email:", emailError);
+        }
+        res.status(201).json({ message: "User created successfully", user: result.user });
+    }
+    catch (error) {
+        console.error("Create user error:", error);
+        res.status(500).json({ message: `Error creating user: ${error.message}` });
+    }
+};
+exports.createUser = createUser;
 const getAnalytics = async (_req, res) => {
     try {
         const [totalPropertiesResult] = await database_1.db.select({ count: (0, drizzle_orm_1.count)() }).from(schema_1.properties);

@@ -9,6 +9,7 @@ const adminControllers_1 = require("../controllers/adminControllers");
 const router = express_1.default.Router();
 router.get("/analytics", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.ANALYTICS_ACCESS]), adminControllers_1.getAnalytics);
 router.get("/users", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), adminControllers_1.getAllUsers);
+router.post("/users", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), adminControllers_1.createUser);
 router.put("/users/:userId/status", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), adminControllers_1.updateUserStatus);
 router.delete("/users/:userId", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), adminControllers_1.deleteUser);
 router.get("/properties", (0, authMiddleware_1.authMiddleware)(["admin", "agent"], [authMiddleware_1.AdminPrivilege.PROPERTY_MANAGEMENT]), adminControllers_1.getAllProperties);

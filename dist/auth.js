@@ -130,7 +130,7 @@ exports.auth = (0, better_auth_1.betterAuth)({
     hooks: {
         before: (0, api_1.createAuthMiddleware)(async (ctx) => {
             if (ctx.path === "/sign-up/email" && ctx.body?.role) {
-                const allowedRoles = ["tenant", "landlord", "agent", "sale", "admin"];
+                const allowedRoles = ["tenant", "landlord", "agent", "sale", "admin", "blogger"];
                 if (!allowedRoles.includes(ctx.body.role)) {
                     throw new Error(`Invalid role: ${ctx.body.role}. Allowed roles are: ${allowedRoles.join(", ")}`);
                 }

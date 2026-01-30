@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.landlordSurveys = exports.tenantSurveys = exports.adminSettings = exports.payments = exports.leases = exports.applications = exports.agentProperties = exports.tasks = exports.properties = exports.saleVerifications = exports.saleSellers = exports.saleListingDocuments = exports.saleListingAuditLog = exports.saleListings = exports.saleUsers = exports.admins = exports.agents = exports.tenants = exports.landlords = exports.agentRegistrationCodes = exports.landlordRegistrationCodes = exports.locations = exports.verifications = exports.sessions = exports.accounts = exports.users = exports.responseStatusEnum = exports.messageCategoryEnum = exports.messageStatusEnum = exports.messageTypeEnum = exports.landlordAcquisitionStatusEnum = exports.saleListingStatusEnum = exports.saleListingTypeEnum = exports.activityTypeEnum = exports.notificationPriorityEnum = exports.notificationTypeEnum = exports.experienceLevelEnum = exports.jobApplicationStatusEnum = exports.jobTypeEnum = exports.inspectionStatusEnum = exports.taskPriorityEnum = exports.taskStatusEnum = exports.childrenPreferenceEnum = exports.genderPreferenceEnum = exports.maritalPreferenceEnum = exports.withdrawalStatusEnum = exports.propertyStatusEnum = exports.paymentStatusEnum = exports.applicationStatusEnum = exports.propertyTypeEnum = void 0;
-exports.blogPostTags = exports.blogPosts = exports.blogTags = exports.blogCategories = exports.bloggers = exports.blogPostStatusEnum = exports.landlordTenantRentals = exports.renewalRequests = exports.messageAuditLog = exports.messageResponses = exports.smsMessages = exports.spatialRefSys = exports.tenantProperties = exports.tenantFavorites = exports.tenantEditAuditLog = exports.activityFeeds = exports.notifications = exports.jobApplicationRatings = exports.jobApplications = exports.jobs = exports.landlordAcquisitions = exports.withdrawals = exports.inspectionLimits = exports.inspections = exports.emailSubscriptions = void 0;
+exports.adminAuditLogs = exports.blogPostTags = exports.blogPosts = exports.blogTags = exports.blogCategories = exports.bloggers = exports.blogPostStatusEnum = exports.landlordTenantRentals = exports.renewalRequests = exports.messageAuditLog = exports.messageResponses = exports.smsMessages = exports.spatialRefSys = exports.tenantProperties = exports.tenantFavorites = exports.tenantEditAuditLog = exports.activityFeeds = exports.notifications = exports.jobApplicationRatings = exports.jobApplications = exports.jobs = exports.landlordAcquisitions = exports.withdrawals = exports.inspectionLimits = exports.inspections = exports.emailSubscriptions = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 exports.propertyTypeEnum = (0, pg_core_1.pgEnum)('PropertyType', ['SelfContain', 'Apartment', 'Bungalow', 'Duplex']);
 exports.applicationStatusEnum = (0, pg_core_1.pgEnum)('ApplicationStatus', ['Pending', 'Denied', 'Approved']);
@@ -763,3 +763,12 @@ exports.blogPostTags = (0, pg_core_1.pgTable)('BlogPostTag', {
 }, (table) => ({
     pk: (0, pg_core_1.unique)().on(table.postId, table.tagId),
 }));
+exports.adminAuditLogs = (0, pg_core_1.pgTable)('AdminAuditLog', {
+    id: (0, pg_core_1.serial)('id').primaryKey(),
+    adminUserId: (0, pg_core_1.text)('adminUserId').notNull(),
+    action: (0, pg_core_1.varchar)('action', { length: 50 }).notNull(),
+    targetUserId: (0, pg_core_1.text)('targetUserId'),
+    details: (0, pg_core_1.json)('details'),
+    ipAddress: (0, pg_core_1.varchar)('ipAddress', { length: 45 }),
+    createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
+});

@@ -37,6 +37,6 @@ router.post('/application-documents', (0, authMiddleware_1.authMiddleware)(['ten
 router.post('/property-photos', (0, authMiddleware_1.authMiddleware)(['landlord']), upload.array('photos', 20), cloudinaryUploadControllers_1.uploadPropertyPhotos);
 router.post('/property-video', (0, authMiddleware_1.authMiddleware)(['landlord']), upload.single('video'), cloudinaryUploadControllers_1.uploadPropertyVideo);
 router.post('/logo-watermark', (0, authMiddleware_1.authMiddleware)(['admin']), upload.single('logo'), cloudinaryUploadControllers_1.uploadLogoWatermark);
-router.delete('/delete', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin']), cloudinaryUploadControllers_1.deleteFile);
-router.get('/optimize-url', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin']), cloudinaryUploadControllers_1.getOptimizedUrl);
+router.delete('/delete', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin', 'blogger']), cloudinaryUploadControllers_1.deleteFile);
+router.get('/optimize-url', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin', 'blogger']), cloudinaryUploadControllers_1.getOptimizedUrl);
 exports.default = router;

@@ -92,14 +92,14 @@ router.post(
 // Delete file from Cloudinary
 router.delete(
   '/delete',
-  authMiddleware(['landlord', 'tenant', 'admin']),
+  authMiddleware(['landlord', 'tenant', 'admin', 'blogger']),
   deleteFile
 );
 
 // Generate optimized URL for existing Cloudinary asset
 router.get(
   '/optimize-url',
-  authMiddleware(['landlord', 'tenant', 'admin']),
+  authMiddleware(['landlord', 'tenant', 'admin', 'blogger']),
   getOptimizedUrl
 );
 

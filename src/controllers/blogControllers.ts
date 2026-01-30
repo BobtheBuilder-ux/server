@@ -10,6 +10,24 @@ const computeReadingTime = (html: string) => {
   return Math.max(1, Math.round(words / 200));
 };
 
+export const getCategories = async (req: Request, res: Response) => {
+  try {
+    const categories = await db.select().from(blogCategories).orderBy(blogCategories.name);
+    return res.json(categories);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Failed to fetch categories" });
+  }
+};
+
+export const getTags = async (req: Request, res: Response) => {
+  try {
+    const tags = await db.select().from(blogTags).orderBy(blogTags.name);
+    return res.json(tags);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Failed to fetch tags" });
+  }
+};
+
 export const adminCreateBlogger = async (req: Request, res: Response) => {
   try {
     const { userId, email, name, bio, avatarUrl } = req.body || {};
@@ -34,6 +52,27 @@ export const adminCreateBlogger = async (req: Request, res: Response) => {
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || "Failed to create blogger" });
+  }
+};
+
+export const getBloggerProfile = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    const [profile] = await db.select().from(bloggers).where(eq(bloggers.userId, req.user.id)).limit(1);
+    
+    // If profile doesn't exist but user is blogger, create one or return basic info?
+    // The createUserProfile function handles creation.
+    // If missing, we might want to create it on the fly?
+    if (!profile) {
+        // Try to create it if it doesn't exist
+        await createUserProfile(req.user.id, "blogger", { displayName: req.user.name || req.user.email.split('@')[0] });
+        const [newProfile] = await db.select().from(bloggers).where(eq(bloggers.userId, req.user.id)).limit(1);
+        return res.json(newProfile);
+    }
+    
+    return res.json(profile);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Failed to fetch profile" });
   }
 };
 
@@ -268,6 +307,10 @@ export const upsertCategory = async (req: Request, res: Response) => {
       const [updated] = await db.update(blogCategories).set({ name, slug, updatedAt: new Date() }).where(eq(blogCategories.id, id)).returning();
       return res.json(updated);
     } else {
+      const [existing] = await db.select().from(blogCategories).where(eq(blogCategories.slug, slug)).limit(1);
+      if (existing) {
+          return res.json(existing);
+      }
       const [created] = await db.insert(blogCategories).values({ name, slug }).returning();
       return res.json(created);
     }

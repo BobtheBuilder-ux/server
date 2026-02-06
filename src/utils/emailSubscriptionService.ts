@@ -1,7 +1,98 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { sendEmail } from './emailService';
-import { surveyConfirmationTemplate, welcomeToEmailListTemplate, inspectionRequestTemplate, inspectionApprovedTemplate, tenantWelcomeTemplate, landlordWelcomeTemplate, adminWelcomeTemplate } from './emailTemplates';
+import { surveyConfirmationTemplate, welcomeToEmailListTemplate, inspectionRequestTemplate, inspectionApprovedTemplate, tenantWelcomeTemplate, landlordWelcomeTemplate, adminWelcomeTemplate, inspectionRequestAdminTemplate, negotiationRequestAdminTemplate, viewingRequestAdminTemplate } from './emailTemplates';
 import { db, emailSubscriptions } from './database';
+import { admins } from '../db/schema';
+
+// Helper to get admin emails
+const getAdminEmails = async (): Promise<string[]> => {
+  try {
+    const adminUsers = await db.select({ email: admins.email }).from(admins);
+    return adminUsers.map(a => a.email);
+  } catch (error) {
+    console.error('Error fetching admin emails:', error);
+    return [];
+  }
+};
+
+export const sendInspectionRequestToAdminEmail = async (
+  tenantName: string,
+  propertyAddress: string,
+  scheduledDate: string,
+  preferredTime: string,
+  tenantEmail: string,
+  tenantPhone: string
+): Promise<void> => {
+  try {
+    const adminEmails = await getAdminEmails();
+    if (adminEmails.length === 0) return;
+
+    for (const email of adminEmails) {
+      await sendEmail({
+        to: email,
+        subject: inspectionRequestAdminTemplate.subject,
+        body: inspectionRequestAdminTemplate.body(tenantName, propertyAddress, scheduledDate, preferredTime, tenantEmail, tenantPhone)
+      });
+    }
+    console.log(`Inspection request email sent to admins: ${adminEmails.join(', ')}`);
+  } catch (error) {
+    console.error('Error sending inspection request email to admin:', error);
+    // Don't throw, just log
+  }
+};
+
+export const sendNegotiationRequestToAdminEmail = async (
+  nameOrCompany: string,
+  proposedPrice: string,
+  contactEmail: string,
+  contactPhone: string,
+  listingTitle: string
+): Promise<void> => {
+  try {
+    const adminEmails = await getAdminEmails();
+    if (adminEmails.length === 0) return;
+
+    for (const email of adminEmails) {
+      await sendEmail({
+        to: email,
+        subject: negotiationRequestAdminTemplate.subject,
+        body: negotiationRequestAdminTemplate.body(nameOrCompany, proposedPrice, contactEmail, contactPhone, listingTitle)
+      });
+    }
+    console.log(`Negotiation request email sent to admins: ${adminEmails.join(', ')}`);
+  } catch (error) {
+    console.error('Error sending negotiation request email to admin:', error);
+    // Don't throw
+  }
+};
+
+
+export const sendViewingRequestToAdminEmail = async (
+  name: string,
+  listingTitle: string,
+  date: string,
+  time: string,
+  contactEmail: string,
+  contactPhone: string,
+  message?: string
+): Promise<void> => {
+  try {
+    const adminEmails = await getAdminEmails();
+    if (adminEmails.length === 0) return;
+
+    for (const email of adminEmails) {
+      await sendEmail({
+        to: email,
+        subject: viewingRequestAdminTemplate.subject,
+        body: viewingRequestAdminTemplate.body(name, listingTitle, date, time, contactEmail, contactPhone, message)
+      });
+    }
+    console.log(`Viewing request email sent to admins: ${adminEmails.join(', ')}`);
+  } catch (error) {
+    console.error('Error sending viewing request email to admin:', error);
+    // Don't throw
+  }
+};
 
 export interface EmailSubscriptionData {
   email: string;

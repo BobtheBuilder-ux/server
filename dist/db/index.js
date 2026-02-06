@@ -10,7 +10,7 @@ const pool = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 10000,
 });
 exports.db = (0, node_postgres_1.drizzle)(pool, {
     schema: { ...schema, ...relations },

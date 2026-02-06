@@ -1,10 +1,78 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendAdminWelcomeEmail = exports.sendLandlordWelcomeEmail = exports.sendTenantWelcomeEmail = exports.sendInspectionApprovedEmail = exports.sendInspectionRequestEmail = exports.getEmailSubscriptions = exports.unsubscribeFromEmailList = exports.sendWelcomeEmail = exports.sendSurveyConfirmationEmail = exports.addToEmailList = void 0;
+exports.sendAdminWelcomeEmail = exports.sendLandlordWelcomeEmail = exports.sendTenantWelcomeEmail = exports.sendInspectionApprovedEmail = exports.sendInspectionRequestEmail = exports.getEmailSubscriptions = exports.unsubscribeFromEmailList = exports.sendWelcomeEmail = exports.sendSurveyConfirmationEmail = exports.addToEmailList = exports.sendViewingRequestToAdminEmail = exports.sendNegotiationRequestToAdminEmail = exports.sendInspectionRequestToAdminEmail = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const emailService_1 = require("./emailService");
 const emailTemplates_1 = require("./emailTemplates");
 const database_1 = require("./database");
+const schema_1 = require("../db/schema");
+const getAdminEmails = async () => {
+    try {
+        const adminUsers = await database_1.db.select({ email: schema_1.admins.email }).from(schema_1.admins);
+        return adminUsers.map(a => a.email);
+    }
+    catch (error) {
+        console.error('Error fetching admin emails:', error);
+        return [];
+    }
+};
+const sendInspectionRequestToAdminEmail = async (tenantName, propertyAddress, scheduledDate, preferredTime, tenantEmail, tenantPhone) => {
+    try {
+        const adminEmails = await getAdminEmails();
+        if (adminEmails.length === 0)
+            return;
+        for (const email of adminEmails) {
+            await (0, emailService_1.sendEmail)({
+                to: email,
+                subject: emailTemplates_1.inspectionRequestAdminTemplate.subject,
+                body: emailTemplates_1.inspectionRequestAdminTemplate.body(tenantName, propertyAddress, scheduledDate, preferredTime, tenantEmail, tenantPhone)
+            });
+        }
+        console.log(`Inspection request email sent to admins: ${adminEmails.join(', ')}`);
+    }
+    catch (error) {
+        console.error('Error sending inspection request email to admin:', error);
+    }
+};
+exports.sendInspectionRequestToAdminEmail = sendInspectionRequestToAdminEmail;
+const sendNegotiationRequestToAdminEmail = async (nameOrCompany, proposedPrice, contactEmail, contactPhone, listingTitle) => {
+    try {
+        const adminEmails = await getAdminEmails();
+        if (adminEmails.length === 0)
+            return;
+        for (const email of adminEmails) {
+            await (0, emailService_1.sendEmail)({
+                to: email,
+                subject: emailTemplates_1.negotiationRequestAdminTemplate.subject,
+                body: emailTemplates_1.negotiationRequestAdminTemplate.body(nameOrCompany, proposedPrice, contactEmail, contactPhone, listingTitle)
+            });
+        }
+        console.log(`Negotiation request email sent to admins: ${adminEmails.join(', ')}`);
+    }
+    catch (error) {
+        console.error('Error sending negotiation request email to admin:', error);
+    }
+};
+exports.sendNegotiationRequestToAdminEmail = sendNegotiationRequestToAdminEmail;
+const sendViewingRequestToAdminEmail = async (name, listingTitle, date, time, contactEmail, contactPhone, message) => {
+    try {
+        const adminEmails = await getAdminEmails();
+        if (adminEmails.length === 0)
+            return;
+        for (const email of adminEmails) {
+            await (0, emailService_1.sendEmail)({
+                to: email,
+                subject: emailTemplates_1.viewingRequestAdminTemplate.subject,
+                body: emailTemplates_1.viewingRequestAdminTemplate.body(name, listingTitle, date, time, contactEmail, contactPhone, message)
+            });
+        }
+        console.log(`Viewing request email sent to admins: ${adminEmails.join(', ')}`);
+    }
+    catch (error) {
+        console.error('Error sending viewing request email to admin:', error);
+    }
+};
+exports.sendViewingRequestToAdminEmail = sendViewingRequestToAdminEmail;
 const addToEmailList = async (data) => {
     try {
         const existingSubscriptionResult = await database_1.db.select().from(database_1.emailSubscriptions)

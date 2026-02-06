@@ -67,8 +67,6 @@ router.post("/request", (0, authMiddleware_1.authMiddleware)(["tenant"]), async 
             res.status(404).json({ error: "Property not found" });
             return;
         }
-        const [nearestAgent] = await database_1.db.select().from(schema_1.agents)
-            .limit(1);
         const [inspection] = await database_1.db.insert(schema_1.inspections)
             .values({
             propertyId,
@@ -79,7 +77,7 @@ router.post("/request", (0, authMiddleware_1.authMiddleware)(["tenant"]), async 
             tenantPhone,
             preferredTime,
             message,
-            agentId: nearestAgent?.id,
+            agentId: null,
             depositPaid,
             depositAmount,
             paymentReference
@@ -103,6 +101,7 @@ router.post("/request", (0, authMiddleware_1.authMiddleware)(["tenant"]), async 
             if (propertyLocation) {
                 await (0, emailSubscriptionService_1.sendInspectionRequestEmail)(tenantEmail, tenantName, propertyLocation.address, scheduledDate.toLocaleDateString(), preferredTime);
                 console.log(`Inspection request email sent to tenant: ${tenantEmail}`);
+                await (0, emailSubscriptionService_1.sendInspectionRequestToAdminEmail)(tenantName, propertyLocation.address, scheduledDate.toLocaleDateString(), preferredTime, tenantEmail, tenantPhone);
             }
         }
         catch (emailError) {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "../utils/database";
-import { properties, tenants, landlords, leases, agents, tasks } from "../db/schema";
+import { properties, tenants, landlords, leases, agents, tasks, users } from "../db/schema";
 
 export const getAgentLeads = async (
   _req: Request,
@@ -234,6 +234,11 @@ export const updateAgentSettings = async (
       .returning();
 
     const updatedAgent = updatedAgentResult[0];
+
+    // Update user onboarding status
+    await db.update(users)
+      .set({ isOnboardingComplete: true })
+      .where(eq(users.id, cognitoId));
 
     res.json({ 
       message: "Agent settings updated successfully",

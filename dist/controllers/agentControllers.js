@@ -176,6 +176,9 @@ const updateAgentSettings = async (req, res) => {
             .where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, cognitoId))
             .returning();
         const updatedAgent = updatedAgentResult[0];
+        await database_1.db.update(schema_1.users)
+            .set({ isOnboardingComplete: true })
+            .where((0, drizzle_orm_1.eq)(schema_1.users.id, cognitoId));
         res.json({
             message: "Agent settings updated successfully",
             agent: {

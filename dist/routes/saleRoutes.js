@@ -24,7 +24,8 @@ router.post("/listings/:id/reject", (0, betterAuthMiddleware_1.betterAuthMiddlew
 router.post("/admin/listings/:id/verify", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["admin"]), saleControllers_1.saleUpload.fields([
     { name: "supportingDocs", maxCount: 10 },
 ]), saleControllers_1.verifySaleListing);
-router.post("/listings/:id/negotiations", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "sale", "agent", "admin"]), saleControllers_1.submitSaleNegotiation);
+router.post("/listings/:id/negotiations", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "sale", "agent", "admin", "user"]), saleControllers_1.submitSaleNegotiation);
+router.post("/listings/:id/viewings", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "sale", "agent", "admin", "user"]), saleControllers_1.submitSaleViewing);
 router.get("/listings/:id/negotiations", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["admin"]), saleControllers_1.getSaleNegotiations);
 router.post("/listings/:id/full-payment", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "sale", "agent", "admin"]), saleControllers_1.saleUpload.single("receipt"), saleControllers_1.submitSaleFullPayment);
 router.get("/listings/:id/full-payments", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["admin"]), saleControllers_1.getSaleFullPayments);

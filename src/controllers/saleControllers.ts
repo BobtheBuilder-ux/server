@@ -1,8 +1,12 @@
 import { Request, Response } from "express";
 import { db } from "../utils/database";
-import { saleListings, saleListingAuditLog, saleListingDocuments, saleSellers, saleVerifications, users } from "../db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { saleListings, saleListingAuditLog, saleListingDocuments, saleSellers, saleVerifications, users, realEstateCompanies } from "../db/schema";
+import { eq, and, gte, lte, like } from "drizzle-orm";
 import { uploadBufferToCloudinary, uploadMultipleBuffersToCloudinary } from "../utils/cloudinaryService";
+import {
+  sendNegotiationRequestToAdminEmail,
+  sendViewingRequestToAdminEmail,
+} from "../utils/emailSubscriptionService";
 import multer from "multer";
 
 const storage = multer.memoryStorage();
@@ -27,6 +31,12 @@ export const createSaleListing = async (req: Request, res: Response) => {
     if (errors.length) return res.status(400).json({ errors });
 
     const createdByUserId = req.user?.id as string;
+
+    // Check if user has a real estate company
+    const userCompany = await db.query.realEstateCompanies.findFirst({
+      where: eq(realEstateCompanies.userId, createdByUserId),
+    });
+    const realEstateCompanyId = userCompany ? userCompany.id : null;
 
     // Handle uploads if provided
     let proofUrl: string | null = null;
@@ -84,6 +94,7 @@ export const createSaleListing = async (req: Request, res: Response) => {
       proofOfOwnershipUrl: proofUrl || body.proofOfOwnershipUrl || null,
       status: "Pending",
       createdByUserId,
+      realEstateCompanyId,
       submittedByRole: body.submittedByRole || null,
       // Extended fields
       propertyType: body.propertyType || null,
@@ -129,6 +140,7 @@ export const createSaleListing = async (req: Request, res: Response) => {
       proofOfOwnershipUrl: saleListings.proofOfOwnershipUrl,
       status: saleListings.status,
       createdByUserId: saleListings.createdByUserId,
+      realEstateCompanyId: saleListings.realEstateCompanyId,
       approvedByAdminId: saleListings.approvedByAdminId,
       approvedAt: saleListings.approvedAt,
       rejectionReason: saleListings.rejectionReason,
@@ -223,44 +235,24 @@ export const createSaleListing = async (req: Request, res: Response) => {
 
 export const getSaleListings = async (req: Request, res: Response) => {
   try {
-    const { type, status, minPrice, maxPrice, city, state } = req.query as any;
-    let whereClauses: any[] = [];
-    if (type) whereClauses.push(eq(saleListings.type, type));
-    if (status) whereClauses.push(eq(saleListings.status, status));
-    if (city) whereClauses.push(eq(saleListings.city, city));
-    if (state) whereClauses.push(eq(saleListings.state, state));
-    if (minPrice) whereClauses.push(gte(saleListings.price, Number(minPrice)));
-    if (maxPrice) whereClauses.push(lte(saleListings.price, Number(maxPrice)));
+    const { type, search, status, priceMin, priceMax, companyId } = req.query as any;
+    const whereClauses: any[] = [];
 
-    const listings = await db
-      .select({
-        id: saleListings.id,
-        type: saleListings.type,
-        title: saleListings.title,
-        description: saleListings.description,
-        locationAddress: saleListings.locationAddress,
-        city: saleListings.city,
-        state: saleListings.state,
-        country: saleListings.country,
-        coordinates: saleListings.coordinates,
-        size: saleListings.size,
-        sizeUnit: saleListings.sizeUnit,
-        price: saleListings.price,
-        currency: saleListings.currency,
-        features: saleListings.features,
-        imageUrls: saleListings.imageUrls,
-        videoUrls: saleListings.videoUrls,
-        proofOfOwnershipUrl: saleListings.proofOfOwnershipUrl,
-        status: saleListings.status,
-        createdByUserId: saleListings.createdByUserId,
-        approvedByAdminId: saleListings.approvedByAdminId,
-        approvedAt: saleListings.approvedAt,
-        rejectionReason: saleListings.rejectionReason,
-        createdAt: saleListings.createdAt,
-        updatedAt: saleListings.updatedAt,
-      })
-      .from(saleListings)
-      .where(whereClauses.length ? and(...whereClauses) : undefined);
+    if (type) whereClauses.push(eq(saleListings.type, type as "Land" | "Property"));
+    if (status) whereClauses.push(eq(saleListings.status, status as any));
+    if (search) whereClauses.push(like(saleListings.title, `%${search}%`));
+    if (priceMin) whereClauses.push(gte(saleListings.price, Number(priceMin)));
+    if (priceMax) whereClauses.push(lte(saleListings.price, Number(priceMax)));
+    if (companyId) whereClauses.push(eq(saleListings.realEstateCompanyId, Number(companyId)));
+
+    const listings = await db.query.saleListings.findMany({
+      where: whereClauses.length ? and(...whereClauses) : undefined,
+      with: {
+        company: true,
+      },
+      orderBy: (listings, { desc }) => [desc(listings.createdAt)],
+    });
+
     return res.status(200).json({ listings });
   } catch (error) {
     console.error("Error fetching sale listings:", error);
@@ -270,37 +262,25 @@ export const getSaleListings = async (req: Request, res: Response) => {
 
 export const getSaleListing = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
-    const [listing] = await db
-      .select({
-        id: saleListings.id,
-        type: saleListings.type,
-        title: saleListings.title,
-        description: saleListings.description,
-        locationAddress: saleListings.locationAddress,
-        city: saleListings.city,
-        state: saleListings.state,
-        country: saleListings.country,
-        coordinates: saleListings.coordinates,
-        size: saleListings.size,
-        sizeUnit: saleListings.sizeUnit,
-        price: saleListings.price,
-        currency: saleListings.currency,
-        features: saleListings.features,
-        imageUrls: saleListings.imageUrls,
-        videoUrls: saleListings.videoUrls,
-        proofOfOwnershipUrl: saleListings.proofOfOwnershipUrl,
-        status: saleListings.status,
-        createdByUserId: saleListings.createdByUserId,
-        approvedByAdminId: saleListings.approvedByAdminId,
-        approvedAt: saleListings.approvedAt,
-        rejectionReason: saleListings.rejectionReason,
-        createdAt: saleListings.createdAt,
-        updatedAt: saleListings.updatedAt,
-      })
-      .from(saleListings)
-      .where(eq(saleListings.id, id))
-      .limit(1);
+    const { id } = req.params;
+    let listing;
+
+    if (!isNaN(Number(id))) {
+      listing = await db.query.saleListings.findFirst({
+        where: eq(saleListings.id, Number(id)),
+        with: {
+          company: true,
+        }
+      });
+    } else {
+      listing = await db.query.saleListings.findFirst({
+        where: eq(saleListings.uuid, id),
+        with: {
+          company: true,
+        }
+      });
+    }
+
     if (!listing) return res.status(404).json({ error: "Not found" });
     return res.status(200).json(listing);
   } catch (error) {
@@ -311,10 +291,18 @@ export const getSaleListing = async (req: Request, res: Response) => {
 
 export const updateSaleListing = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const { id } = req.params;
     const body = req.body;
-    const [existing] = await db.select().from(saleListings).where(eq(saleListings.id, id)).limit(1);
+    
+    let existing;
+    if (!isNaN(Number(id))) {
+      [existing] = await db.select().from(saleListings).where(eq(saleListings.id, Number(id))).limit(1);
+    } else {
+      [existing] = await db.select().from(saleListings).where(eq(saleListings.uuid, id)).limit(1);
+    }
+
     if (!existing) return res.status(404).json({ error: "Not found" });
+    const listingId = existing.id;
 
     const [updated] = await db.update(saleListings).set({
       title: body.title ?? existing.title,
@@ -330,7 +318,7 @@ export const updateSaleListing = async (req: Request, res: Response) => {
       imageUrls: body.imageUrls ?? existing.imageUrls,
       videoUrls: body.videoUrls ?? existing.videoUrls,
       proofOfOwnershipUrl: body.proofOfOwnershipUrl ?? existing.proofOfOwnershipUrl,
-    }).where(eq(saleListings.id, id)).returning({
+    }).where(eq(saleListings.id, listingId)).returning({
       id: saleListings.id,
       type: saleListings.type,
       title: saleListings.title,
@@ -350,7 +338,7 @@ export const updateSaleListing = async (req: Request, res: Response) => {
     });
 
     await db.insert(saleListingAuditLog).values({
-      listingId: id,
+      listingId: listingId,
       action: "Updated",
       actorUserId: req.user?.id as string,
       metadata: { fields: Object.keys(body || {}) },
@@ -365,14 +353,24 @@ export const updateSaleListing = async (req: Request, res: Response) => {
 
 export const approveSaleListing = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const { id } = req.params;
     const adminUserId = req.user?.id as string;
+    
+    let listingId: number;
+    if (!isNaN(Number(id))) {
+      listingId = Number(id);
+    } else {
+      const [listing] = await db.select().from(saleListings).where(eq(saleListings.uuid, id)).limit(1);
+      if (!listing) return res.status(404).json({ error: "Not found" });
+      listingId = listing.id;
+    }
+
     const [updated] = await db.update(saleListings).set({
       status: "Approved",
       approvedByAdminId: undefined,
       approvedAt: new Date(),
       rejectionReason: null,
-    }).where(eq(saleListings.id, id)).returning({
+    }).where(eq(saleListings.id, listingId)).returning({
       id: saleListings.id,
       type: saleListings.type,
       title: saleListings.title,
@@ -392,7 +390,7 @@ export const approveSaleListing = async (req: Request, res: Response) => {
     });
 
     await db.insert(saleListingAuditLog).values({
-      listingId: id,
+      listingId: listingId,
       action: "Approved",
       actorUserId: adminUserId,
     });
@@ -406,15 +404,25 @@ export const approveSaleListing = async (req: Request, res: Response) => {
 
 export const rejectSaleListing = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const { id } = req.params;
     const adminUserId = req.user?.id as string;
     const reason = (req.body && req.body.reason) || "";
+
+    let listingId: number;
+    if (!isNaN(Number(id))) {
+      listingId = Number(id);
+    } else {
+      const [listing] = await db.select().from(saleListings).where(eq(saleListings.uuid, id)).limit(1);
+      if (!listing) return res.status(404).json({ error: "Not found" });
+      listingId = listing.id;
+    }
+
     const [updated] = await db.update(saleListings).set({
       status: "Rejected",
       approvedByAdminId: undefined,
       approvedAt: null,
       rejectionReason: reason,
-    }).where(eq(saleListings.id, id)).returning({
+    }).where(eq(saleListings.id, listingId)).returning({
       id: saleListings.id,
       type: saleListings.type,
       title: saleListings.title,
@@ -434,7 +442,7 @@ export const rejectSaleListing = async (req: Request, res: Response) => {
     });
 
     await db.insert(saleListingAuditLog).values({
-      listingId: id,
+      listingId: listingId,
       action: "Rejected",
       actorUserId: adminUserId,
       metadata: { reason },
@@ -490,12 +498,21 @@ export const verifySaleListing = async (req: Request, res: Response) => {
 
 export const submitSaleNegotiation = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
-    const [listing] = await db.select().from(saleListings).where(eq(saleListings.id, id)).limit(1);
+    const { id } = req.params;
+    let listing;
+
+    if (!isNaN(Number(id))) {
+      [listing] = await db.select().from(saleListings).where(eq(saleListings.id, Number(id))).limit(1);
+    } else {
+      [listing] = await db.select().from(saleListings).where(eq(saleListings.uuid, id)).limit(1);
+    }
+
     if (!listing) {
       res.status(404).json({ error: "Not found" });
       return;
     }
+    
+    const listingId = listing.id;
 
     const actorUserId = req.user?.id as string;
     const {
@@ -511,10 +528,19 @@ export const submitSaleNegotiation = async (req: Request, res: Response) => {
       return;
     }
 
+    // Notify admins
+    await sendNegotiationRequestToAdminEmail(
+      nameOrCompany,
+      proposedPrice ? String(proposedPrice) : "N/A",
+      email,
+      phone,
+      listing.title
+    );
+
     const [log] = await db
       .insert(saleListingAuditLog)
       .values({
-        listingId: id,
+        listingId: listingId,
         action: "NegotiationRequested",
         actorUserId,
         metadata: {
@@ -530,6 +556,74 @@ export const submitSaleNegotiation = async (req: Request, res: Response) => {
     res.status(201).json(log);
   } catch (error: any) {
     console.error("Error submitting negotiation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const submitSaleViewing = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    let listing;
+
+    if (!isNaN(Number(id))) {
+      [listing] = await db.select().from(saleListings).where(eq(saleListings.id, Number(id))).limit(1);
+    } else {
+      [listing] = await db.select().from(saleListings).where(eq(saleListings.uuid, id)).limit(1);
+    }
+
+    if (!listing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    
+    const listingId = listing.id;
+
+    const actorUserId = req.user?.id as string;
+    const {
+      name,
+      email,
+      phone,
+      date,
+      time,
+      message,
+    } = req.body || {};
+
+    if (!name || !email || !phone || !date || !time) {
+      res.status(400).json({ error: "Missing required fields" });
+      return;
+    }
+
+    // Notify admins
+    await sendViewingRequestToAdminEmail(
+      name,
+      listing.title,
+      date,
+      time,
+      email,
+      phone,
+      message
+    );
+
+    const [log] = await db
+      .insert(saleListingAuditLog)
+      .values({
+        listingId: listingId,
+        action: "ViewingRequested",
+        actorUserId: actorUserId || "guest", // Allow guests if needed, but betterAuthMiddleware might enforce user
+        metadata: {
+          name,
+          email,
+          phone,
+          date,
+          time,
+          message,
+        },
+      })
+      .returning();
+
+    res.status(201).json(log);
+  } catch (error: any) {
+    console.error("Error submitting viewing:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

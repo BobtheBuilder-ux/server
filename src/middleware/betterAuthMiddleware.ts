@@ -36,9 +36,9 @@ export const betterAuthMiddleware = (allowedRoles?: string[]) => {
       }
 
       // Check if email is verified
-      if (!session.user.emailVerified) {
-        return res.status(401).json({ error: "Email verification required" });
-      }
+      // if (!session.user.emailVerified) {
+      //   return res.status(401).json({ error: "Email verification required" });
+      // }
 
       // Get user with role information
       const [user] = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1);

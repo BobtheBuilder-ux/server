@@ -86,6 +86,7 @@ const getProperties = async (req, res) => {
                 postedDate: schema_1.properties.postedDate,
                 landlordCognitoId: schema_1.properties.landlordCognitoId,
                 availableUnits: schema_1.properties.availableUnits,
+                uuid: schema_1.properties.uuid,
                 landlord: {
                     id: schema_1.landlords.id,
                     name: schema_1.landlords.name,
@@ -135,6 +136,13 @@ exports.getProperties = getProperties;
 const getProperty = async (req, res) => {
     try {
         const { id } = req.params;
+        let whereClause;
+        if (!isNaN(Number(id))) {
+            whereClause = (0, drizzle_orm_1.eq)(schema_1.properties.id, Number(id));
+        }
+        else {
+            whereClause = (0, drizzle_orm_1.eq)(schema_1.properties.uuid, id);
+        }
         const propertyResult = await database_1.db.select({
             id: schema_1.properties.id,
             name: schema_1.properties.name,
@@ -148,6 +156,7 @@ const getProperty = async (req, res) => {
             amenities: schema_1.properties.amenities,
             postedDate: schema_1.properties.postedDate,
             availableUnits: schema_1.properties.availableUnits,
+            uuid: schema_1.properties.uuid,
             locationId: schema_1.properties.locationId,
             landlord: {
                 id: schema_1.landlords.id,
@@ -165,7 +174,7 @@ const getProperty = async (req, res) => {
             .from(schema_1.properties)
             .leftJoin(schema_1.landlords, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId))
             .leftJoin(schema_1.locations, (0, drizzle_orm_1.eq)(schema_1.properties.locationId, schema_1.locations.id))
-            .where((0, drizzle_orm_1.eq)(schema_1.properties.id, Number(id)))
+            .where(whereClause)
             .limit(1);
         if (propertyResult.length === 0) {
             res.status(404).json({ error: 'Property not found' });

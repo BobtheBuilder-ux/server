@@ -54,7 +54,7 @@ router.get("/settings", authMiddleware(["admin"], [AdminPrivilege.SYSTEM_SETTING
 router.put("/settings", authMiddleware(["admin"], [AdminPrivilege.SYSTEM_SETTINGS]), updateAdminSettings);
 
 // Admin and agent profile routes - require user management privilege
-router.get("/agents/:cognitoId", authMiddleware(["admin"], [AdminPrivilege.AGENT_MANAGEMENT]), getAgent);
+router.get("/agents/:cognitoId", authMiddleware(["admin", "agent"], []), getAgent);
 router.get("/admins/:cognitoId", authMiddleware(["admin"], [AdminPrivilege.USER_MANAGEMENT]), getAdmin);
 
 // Registration management routes - require user management privilege

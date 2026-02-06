@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.landlordSurveys = exports.tenantSurveys = exports.adminSettings = exports.payments = exports.leases = exports.applications = exports.agentProperties = exports.tasks = exports.properties = exports.saleVerifications = exports.saleSellers = exports.saleListingDocuments = exports.saleListingAuditLog = exports.saleListings = exports.saleUsers = exports.admins = exports.agents = exports.tenants = exports.landlords = exports.agentRegistrationCodes = exports.landlordRegistrationCodes = exports.locations = exports.verifications = exports.sessions = exports.accounts = exports.users = exports.responseStatusEnum = exports.messageCategoryEnum = exports.messageStatusEnum = exports.messageTypeEnum = exports.landlordAcquisitionStatusEnum = exports.saleListingStatusEnum = exports.saleListingTypeEnum = exports.activityTypeEnum = exports.notificationPriorityEnum = exports.notificationTypeEnum = exports.experienceLevelEnum = exports.jobApplicationStatusEnum = exports.jobTypeEnum = exports.inspectionStatusEnum = exports.taskPriorityEnum = exports.taskStatusEnum = exports.childrenPreferenceEnum = exports.genderPreferenceEnum = exports.maritalPreferenceEnum = exports.withdrawalStatusEnum = exports.propertyStatusEnum = exports.paymentStatusEnum = exports.applicationStatusEnum = exports.propertyTypeEnum = void 0;
-exports.adminAuditLogs = exports.blogPostTags = exports.blogPosts = exports.blogTags = exports.blogCategories = exports.bloggers = exports.blogPostStatusEnum = exports.landlordTenantRentals = exports.renewalRequests = exports.messageAuditLog = exports.messageResponses = exports.smsMessages = exports.spatialRefSys = exports.tenantProperties = exports.tenantFavorites = exports.tenantEditAuditLog = exports.activityFeeds = exports.notifications = exports.jobApplicationRatings = exports.jobApplications = exports.jobs = exports.landlordAcquisitions = exports.withdrawals = exports.inspectionLimits = exports.inspections = exports.emailSubscriptions = void 0;
+exports.tenantSurveys = exports.adminSettings = exports.payments = exports.leases = exports.applications = exports.agentProperties = exports.tasks = exports.properties = exports.saleVerifications = exports.saleSellers = exports.saleListingDocuments = exports.saleListingAuditLog = exports.saleListings = exports.realEstateCompanies = exports.saleUsers = exports.admins = exports.agents = exports.tenants = exports.landlords = exports.agentRegistrationCodes = exports.landlordRegistrationCodes = exports.locations = exports.verifications = exports.sessions = exports.accounts = exports.users = exports.responseStatusEnum = exports.messageCategoryEnum = exports.messageStatusEnum = exports.messageTypeEnum = exports.landlordAcquisitionStatusEnum = exports.saleListingStatusEnum = exports.saleListingTypeEnum = exports.activityTypeEnum = exports.notificationPriorityEnum = exports.notificationTypeEnum = exports.experienceLevelEnum = exports.jobApplicationStatusEnum = exports.jobTypeEnum = exports.inspectionStatusEnum = exports.taskPriorityEnum = exports.taskStatusEnum = exports.childrenPreferenceEnum = exports.genderPreferenceEnum = exports.maritalPreferenceEnum = exports.withdrawalStatusEnum = exports.propertyStatusEnum = exports.paymentStatusEnum = exports.applicationStatusEnum = exports.propertyTypeEnum = void 0;
+exports.adminAuditLogs = exports.blogPostTags = exports.blogPosts = exports.blogTags = exports.blogCategories = exports.bloggers = exports.blogPostStatusEnum = exports.landlordTenantRentals = exports.renewalRequests = exports.messageAuditLog = exports.messageResponses = exports.smsMessages = exports.spatialRefSys = exports.tenantProperties = exports.tenantFavorites = exports.tenantEditAuditLog = exports.activityFeeds = exports.notifications = exports.jobApplicationRatings = exports.jobApplications = exports.jobs = exports.landlordAcquisitions = exports.withdrawals = exports.inspectionLimits = exports.inspections = exports.emailSubscriptions = exports.landlordSurveys = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 exports.propertyTypeEnum = (0, pg_core_1.pgEnum)('PropertyType', ['SelfContain', 'Apartment', 'Bungalow', 'Duplex']);
 exports.applicationStatusEnum = (0, pg_core_1.pgEnum)('ApplicationStatus', ['Pending', 'Denied', 'Approved']);
@@ -141,6 +141,7 @@ exports.landlords = (0, pg_core_1.pgTable)('Landlord', {
     onboardedAt: (0, pg_core_1.timestamp)('onboardedAt'),
     tenantRegistrationLink: (0, pg_core_1.varchar)('tenantRegistrationLink', { length: 255 }).unique(),
     linkGeneratedAt: (0, pg_core_1.timestamp)('linkGeneratedAt'),
+    createdByAgentId: (0, pg_core_1.integer)('createdByAgentId'),
     createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
 });
@@ -187,8 +188,27 @@ exports.saleUsers = (0, pg_core_1.pgTable)('SaleUser', {
     createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
 });
+exports.realEstateCompanies = (0, pg_core_1.pgTable)('RealEstateCompany', {
+    id: (0, pg_core_1.serial)('id').primaryKey(),
+    userId: (0, pg_core_1.text)('userId').unique().notNull(),
+    companyName: (0, pg_core_1.varchar)('companyName', { length: 255 }).notNull(),
+    slug: (0, pg_core_1.varchar)('slug', { length: 255 }).unique(),
+    licenseNumber: (0, pg_core_1.varchar)('licenseNumber', { length: 100 }).notNull(),
+    logoUrl: (0, pg_core_1.text)('logoUrl'),
+    address: (0, pg_core_1.text)('address'),
+    phoneNumber: (0, pg_core_1.varchar)('phoneNumber', { length: 20 }),
+    email: (0, pg_core_1.varchar)('email', { length: 255 }).notNull(),
+    website: (0, pg_core_1.varchar)('website', { length: 255 }),
+    description: (0, pg_core_1.text)('description'),
+    isVerified: (0, pg_core_1.boolean)('isVerified').default(false).notNull(),
+    verificationStatus: (0, pg_core_1.varchar)('verificationStatus', { length: 50 }).default('Pending').notNull(),
+    createdAt: (0, pg_core_1.timestamp)('createdAt').defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)('updatedAt').defaultNow().notNull(),
+});
 exports.saleListings = (0, pg_core_1.pgTable)('SaleListing', {
     id: (0, pg_core_1.serial)('id').primaryKey(),
+    uuid: (0, pg_core_1.uuid)('uuid').defaultRandom().notNull().unique(),
+    realEstateCompanyId: (0, pg_core_1.integer)('realEstateCompanyId'),
     type: (0, exports.saleListingTypeEnum)('type').notNull(),
     title: (0, pg_core_1.varchar)('title', { length: 255 }).notNull(),
     description: (0, pg_core_1.text)('description'),
@@ -283,6 +303,7 @@ exports.saleVerifications = (0, pg_core_1.pgTable)('SaleVerification', {
 });
 exports.properties = (0, pg_core_1.pgTable)('Property', {
     id: (0, pg_core_1.serial)('id').primaryKey(),
+    uuid: (0, pg_core_1.uuid)('uuid').defaultRandom().notNull().unique(),
     name: (0, pg_core_1.varchar)('name', { length: 255 }).notNull(),
     description: (0, pg_core_1.text)('description').notNull(),
     pricePerYear: (0, pg_core_1.real)('pricePerYear').notNull(),

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminWelcomeTemplate = exports.landlordWelcomeTemplate = exports.propertyRentedNotificationTemplate = exports.applicationApprovedTemplate = exports.applicationSubmittedTemplate = exports.inspectionApprovedTemplate = exports.inspectionRequestTemplate = exports.tenantWelcomeTemplate = exports.jobApplicationHiredTemplate = exports.jobApplicationRejectedTemplate = exports.jobApplicationShortlistedTemplate = exports.jobApplicationSubmittedTemplate = exports.welcomeToEmailListTemplate = exports.surveyConfirmationTemplate = void 0;
+exports.viewingRequestAdminTemplate = exports.adminWelcomeTemplate = exports.landlordWelcomeTemplate = exports.propertyRentedNotificationTemplate = exports.applicationApprovedTemplate = exports.applicationSubmittedTemplate = exports.inspectionApprovedTemplate = exports.inspectionRequestTemplate = exports.tenantWelcomeTemplate = exports.jobApplicationHiredTemplate = exports.negotiationRequestAdminTemplate = exports.inspectionRequestAdminTemplate = exports.jobApplicationRejectedTemplate = exports.jobApplicationShortlistedTemplate = exports.jobApplicationSubmittedTemplate = exports.welcomeToEmailListTemplate = exports.surveyConfirmationTemplate = void 0;
 exports.surveyConfirmationTemplate = {
     tenant: {
         subject: "Thank you for completing our Tenant Survey!",
@@ -308,6 +308,63 @@ exports.jobApplicationRejectedTemplate = {
       <div style="text-align: center; margin-top: 20px;">
         <p style="color: #9ca3af; font-size: 12px;">
           This is an automated notification regarding your job application status.
+        </p>
+      </div>
+    </div>
+  `
+};
+exports.inspectionRequestAdminTemplate = {
+    subject: "New Inspection Request Received",
+    body: (tenantName, propertyAddress, scheduledDate, preferredTime, tenantEmail, tenantPhone) => `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+      <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <h2 style="color: #2563eb; margin-bottom: 20px;">New Inspection Request</h2>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          A new inspection request has been submitted by <strong>${tenantName}</strong>.
+        </p>
+        
+        <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+          <h3 style="color: #1e40af; margin: 0 0 10px 0;">Request Details</h3>
+          <ul style="color: #374151; margin: 0; padding-left: 20px;">
+            <li><strong>Property:</strong> ${propertyAddress}</li>
+            <li><strong>Requested Date:</strong> ${scheduledDate}</li>
+            <li><strong>Preferred Time:</strong> ${preferredTime}</li>
+            <li><strong>Tenant Email:</strong> ${tenantEmail}</li>
+            <li><strong>Tenant Phone:</strong> ${tenantPhone}</li>
+          </ul>
+        </div>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          Please review this request in the Admin Dashboard.
+        </p>
+      </div>
+    </div>
+  `
+};
+exports.negotiationRequestAdminTemplate = {
+    subject: "New Sale Negotiation Request Received",
+    body: (nameOrCompany, proposedPrice, contactEmail, contactPhone, listingTitle) => `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+      <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <h2 style="color: #059669; margin-bottom: 20px;">New Negotiation Request</h2>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          A new negotiation request has been submitted by <strong>${nameOrCompany}</strong>.
+        </p>
+        
+        <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+          <h3 style="color: #047857; margin: 0 0 10px 0;">Negotiation Details</h3>
+          <ul style="color: #374151; margin: 0; padding-left: 20px;">
+            <li><strong>Listing:</strong> ${listingTitle}</li>
+            <li><strong>Proposed Price:</strong> ${proposedPrice}</li>
+            <li><strong>Contact Email:</strong> ${contactEmail}</li>
+            <li><strong>Contact Phone:</strong> ${contactPhone}</li>
+          </ul>
+        </div>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          Please review this request in the Admin Dashboard.
         </p>
       </div>
     </div>
@@ -886,6 +943,43 @@ exports.adminWelcomeTemplate = {
         <p style="color: #9ca3af; font-size: 12px;">
           This is an automated notification for your new admin account.
         </p>
+      </div>
+    </div>
+  `
+};
+exports.viewingRequestAdminTemplate = {
+    subject: "New Viewing Request - Requires Attention",
+    body: (name, listingTitle, date, time, email, phone, message) => `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+      <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <h2 style="color: #6366f1; margin-bottom: 20px;">👁️ New Viewing Request</h2>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          A new viewing request has been submitted for a property.
+        </p>
+        
+        <div style="background-color: #e0e7ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6366f1;">
+          <h3 style="color: #3730a3; margin: 0 0 15px 0;">📋 Request Details:</h3>
+          <ul style="color: #374151; margin: 0; padding-left: 20px; list-style: none;">
+            <li style="margin-bottom: 8px;"><strong>Property:</strong> ${listingTitle}</li>
+            <li style="margin-bottom: 8px;"><strong>Date:</strong> ${date}</li>
+            <li style="margin-bottom: 8px;"><strong>Time:</strong> ${time}</li>
+            <li style="margin-bottom: 8px;"><strong>Applicant:</strong> ${name}</li>
+            <li style="margin-bottom: 8px;"><strong>Email:</strong> ${email}</li>
+            <li style="margin-bottom: 8px;"><strong>Phone:</strong> ${phone}</li>
+            ${message ? `<li style="margin-bottom: 8px;"><strong>Message:</strong> ${message}</li>` : ''}
+          </ul>
+        </div>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          Please review this request and coordinate with the agent or property owner.
+        </p>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">
+            HomeMatch Admin Notification
+          </p>
+        </div>
       </div>
     </div>
   `

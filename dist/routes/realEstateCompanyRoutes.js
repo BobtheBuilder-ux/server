@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const express_1 = require("express");
+const betterAuthMiddleware_1 = require("../middleware/betterAuthMiddleware");
+const realEstateCompanyControllers_1 = require("../controllers/realEstateCompanyControllers");
+const multer_1 = tslib_1.__importDefault(require("multer"));
+const router = (0, express_1.Router)();
+const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
+router.get("/", realEstateCompanyControllers_1.getAllCompanies);
+router.get("/:id", realEstateCompanyControllers_1.getCompanyById);
+router.post("/register", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "sale", "agent", "admin"]), upload.single("logo"), realEstateCompanyControllers_1.registerCompany);
+router.get("/me", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "sale", "agent", "admin", "real_estate_company"]), realEstateCompanyControllers_1.getCompanyProfile);
+router.put("/me", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["real_estate_company", "admin"]), upload.single("logo"), realEstateCompanyControllers_1.updateCompanyProfile);
+router.patch("/:id/status", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["admin"]), realEstateCompanyControllers_1.updateCompanyStatus);
+exports.default = router;

@@ -165,6 +165,7 @@ export const landlords = pgTable('Landlord', {
   onboardedAt: timestamp('onboardedAt'),
   tenantRegistrationLink: varchar('tenantRegistrationLink', { length: 255 }).unique(), // Unique shareable link
   linkGeneratedAt: timestamp('linkGeneratedAt'), // When the link was generated
+  createdByAgentId: integer('createdByAgentId'), // Reference to the agent who created this landlord
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().notNull(),
 });
@@ -218,8 +219,28 @@ export const saleUsers = pgTable('SaleUser', {
 });
 
 // Sale listings table for land and properties
+export const realEstateCompanies = pgTable('RealEstateCompany', {
+  id: serial('id').primaryKey(),
+  userId: text('userId').unique().notNull(),
+  companyName: varchar('companyName', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).unique(), // Added slug for URL friendly company name
+  licenseNumber: varchar('licenseNumber', { length: 100 }).notNull(),
+  logoUrl: text('logoUrl'),
+  address: text('address'),
+  phoneNumber: varchar('phoneNumber', { length: 20 }),
+  email: varchar('email', { length: 255 }).notNull(),
+  website: varchar('website', { length: 255 }),
+  description: text('description'),
+  isVerified: boolean('isVerified').default(false).notNull(),
+  verificationStatus: varchar('verificationStatus', { length: 50 }).default('Pending').notNull(), // Pending, Approved, Rejected
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().notNull(),
+});
+
 export const saleListings = pgTable('SaleListing', {
   id: serial('id').primaryKey(),
+  uuid: uuid('uuid').defaultRandom().notNull().unique(), // Added UUID for URL
+  realEstateCompanyId: integer('realEstateCompanyId'), // Link to RealEstateCompany
   type: saleListingTypeEnum('type').notNull(),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
@@ -325,6 +346,7 @@ export const saleVerifications = pgTable('SaleVerification', {
 
 export const properties = pgTable('Property', {
   id: serial('id').primaryKey(),
+  uuid: uuid('uuid').defaultRandom().notNull().unique(), // Added UUID for URL
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description').notNull(),
   pricePerYear: real('pricePerYear').notNull(),

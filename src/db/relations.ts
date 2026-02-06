@@ -34,7 +34,26 @@ import {
   blogCategories,
   blogTags,
   blogPostTags,
+  realEstateCompanies,
+  saleListings,
 } from './schema';
+
+// Real Estate Company relations
+export const realEstateCompaniesRelations = relations(realEstateCompanies, ({ one, many }) => ({
+  user: one(users, {
+    fields: [realEstateCompanies.userId],
+    references: [users.id],
+  }),
+  listings: many(saleListings),
+}));
+
+// Sale Listing relations
+export const saleListingsRelations = relations(saleListings, ({ one }) => ({
+  company: one(realEstateCompanies, {
+    fields: [saleListings.realEstateCompanyId],
+    references: [realEstateCompanies.id],
+  }),
+}));
 
 // User relations
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -96,6 +115,10 @@ export const landlordsRelations = relations(landlords, ({ one, many }) => ({
   registrationCode: one(landlordRegistrationCodes, {
     fields: [landlords.registrationCodeId],
     references: [landlordRegistrationCodes.id],
+  }),
+  createdByAgent: one(agents, {
+    fields: [landlords.createdByAgentId],
+    references: [agents.id],
   }),
   managedProperties: many(properties),
   withdrawals: many(withdrawals),

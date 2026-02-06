@@ -14,9 +14,6 @@ const betterAuthMiddleware = (allowedRoles) => {
             if (!session || !session.user) {
                 return res.status(401).json({ error: "Authentication required" });
             }
-            if (!session.user.emailVerified) {
-                return res.status(401).json({ error: "Email verification required" });
-            }
             const [user] = await database_1.db.select().from(schema_1.users).where((0, drizzle_orm_1.eq)(schema_1.users.id, session.user.id)).limit(1);
             const [landlordProfile] = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.userId, session.user.id)).limit(1);
             const [tenantProfile] = await database_1.db.select().from(schema_1.tenants).where((0, drizzle_orm_1.eq)(schema_1.tenants.userId, session.user.id)).limit(1);

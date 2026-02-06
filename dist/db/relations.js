@@ -1,8 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.blogPostTagsRelations = exports.blogTagsRelations = exports.blogCategoriesRelations = exports.blogPostsRelations = exports.bloggersRelations = exports.tenantPropertiesRelations = exports.tenantFavoritesRelations = exports.jobApplicationRatingsRelations = exports.jobApplicationsRelations = exports.jobsRelations = exports.withdrawalsRelations = exports.agentRegistrationCodesRelations = exports.landlordRegistrationCodesRelations = exports.agentPropertiesRelations = exports.tasksRelations = exports.inspectionLimitsRelations = exports.inspectionsRelations = exports.paymentsRelations = exports.leasesRelations = exports.applicationsRelations = exports.locationsRelations = exports.propertiesRelations = exports.adminsRelations = exports.agentsRelations = exports.tenantsRelations = exports.landlordsRelations = exports.verificationsRelations = exports.sessionsRelations = exports.accountsRelations = exports.usersRelations = void 0;
+exports.blogPostTagsRelations = exports.blogTagsRelations = exports.blogCategoriesRelations = exports.blogPostsRelations = exports.bloggersRelations = exports.tenantPropertiesRelations = exports.tenantFavoritesRelations = exports.jobApplicationRatingsRelations = exports.jobApplicationsRelations = exports.jobsRelations = exports.withdrawalsRelations = exports.agentRegistrationCodesRelations = exports.landlordRegistrationCodesRelations = exports.agentPropertiesRelations = exports.tasksRelations = exports.inspectionLimitsRelations = exports.inspectionsRelations = exports.paymentsRelations = exports.leasesRelations = exports.applicationsRelations = exports.locationsRelations = exports.propertiesRelations = exports.adminsRelations = exports.agentsRelations = exports.tenantsRelations = exports.landlordsRelations = exports.verificationsRelations = exports.sessionsRelations = exports.accountsRelations = exports.usersRelations = exports.saleListingsRelations = exports.realEstateCompaniesRelations = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const schema_1 = require("./schema");
+exports.realEstateCompaniesRelations = (0, drizzle_orm_1.relations)(schema_1.realEstateCompanies, ({ one, many }) => ({
+    user: one(schema_1.users, {
+        fields: [schema_1.realEstateCompanies.userId],
+        references: [schema_1.users.id],
+    }),
+    listings: many(schema_1.saleListings),
+}));
+exports.saleListingsRelations = (0, drizzle_orm_1.relations)(schema_1.saleListings, ({ one }) => ({
+    company: one(schema_1.realEstateCompanies, {
+        fields: [schema_1.saleListings.realEstateCompanyId],
+        references: [schema_1.realEstateCompanies.id],
+    }),
+}));
 exports.usersRelations = (0, drizzle_orm_1.relations)(schema_1.users, ({ one, many }) => ({
     adminProfile: one(schema_1.admins, {
         fields: [schema_1.users.id],
@@ -54,6 +67,10 @@ exports.landlordsRelations = (0, drizzle_orm_1.relations)(schema_1.landlords, ({
     registrationCode: one(schema_1.landlordRegistrationCodes, {
         fields: [schema_1.landlords.registrationCodeId],
         references: [schema_1.landlordRegistrationCodes.id],
+    }),
+    createdByAgent: one(schema_1.agents, {
+        fields: [schema_1.landlords.createdByAgentId],
+        references: [schema_1.agents.id],
     }),
     managedProperties: many(schema_1.properties),
     withdrawals: many(schema_1.withdrawals),

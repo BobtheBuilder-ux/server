@@ -48,6 +48,7 @@ import publicLandlordAcquisitionRoutes from "./routes/publicLandlordAcquisitionR
 import landlordAcquisitionRoutes from "./routes/landlordAcquisitionRoutes";
 import blogRoutes from "./routes/blogRoutes";
 import publicBlogRoutes from "./routes/publicBlogRoutes";
+import realEstateCompanyRoutes from "./routes/realEstateCompanyRoutes";
 
 const app = express();
 const server = createServer(app);
@@ -144,6 +145,7 @@ app.use("/cloudinary", cloudinaryUploadRoutes);
 app.use("/agent-properties", betterAuthMiddleware(["admin", "agent"]), agentPropertyRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/sales", saleRoutes);
+app.use("/real-estate-companies", realEstateCompanyRoutes);
 // Landlord acquisition intake (public submit) and admin management
 app.use("/landlord-acquisitions", publicLandlordAcquisitionRoutes);
 app.use("/landlord-acquisitions", landlordAcquisitionRoutes);

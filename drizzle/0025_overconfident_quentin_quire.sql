@@ -1,0 +1,1 @@
+ALTER TABLE "Landlord" ADD COLUMN "createdByAgentId" integer;

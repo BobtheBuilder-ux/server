@@ -255,13 +255,32 @@ export const getAllUsers = async (
       phoneNumber: agents.phoneNumber,
     }).from(agents);
 
-    const users = [
+    const bloggersResult = await db.select({
+      id: bloggers.id,
+      userId: bloggers.userId,
+      name: bloggers.displayName,
+      email: users.email,
+    })
+    .from(bloggers)
+    .leftJoin(users, eq(bloggers.userId, users.id));
+
+    const usersList = [
       ...tenantsResult.map(tenant => ({ ...tenant, role: 'tenant', status: 'active', createdAt: new Date() })),
       ...landlordsResult.map(landlord => ({ ...landlord, role: 'landlord', status: 'active', createdAt: new Date() })),
       ...agentsResult.map(agent => ({ ...agent, role: 'agent', status: 'active', createdAt: new Date() })),
+      ...bloggersResult.map(blogger => ({
+        id: blogger.id,
+        cognitoId: blogger.userId,
+        name: blogger.name,
+        email: blogger.email,
+        phoneNumber: null,
+        role: 'blogger',
+        status: 'active',
+        createdAt: new Date()
+      })),
     ];
 
-    res.json(users);
+    res.json(usersList);
   } catch (error: any) {
     res.status(500).json({ message: `Error fetching users: ${error.message}` });
   }
@@ -692,6 +711,13 @@ export const getAgent = async (
 ): Promise<void> => {
   try {
     const { cognitoId } = req.params;
+
+    // Security check: Agents can only view their own profile
+    if (req.user?.role === 'agent' && req.user.id !== cognitoId) {
+       res.status(403).json({ message: "Access denied: You can only view your own profile" });
+       return;
+    }
+
     console.log("Getting agent with cognitoId:", cognitoId);
     
     const agentResult = await db.select({
@@ -701,7 +727,12 @@ export const getAgent = async (
       email: agents.email,
       phoneNumber: agents.phoneNumber,
       address: agents.address,
-    }).from(agents).where(eq(agents.cognitoId, cognitoId)).limit(1);
+      isOnboardingComplete: users.isOnboardingComplete,
+    })
+    .from(agents)
+    .leftJoin(users, eq(agents.cognitoId, users.id))
+    .where(eq(agents.cognitoId, cognitoId))
+    .limit(1);
     const agent = agentResult[0] || null;
     console.log("Agent found:", agent);
 

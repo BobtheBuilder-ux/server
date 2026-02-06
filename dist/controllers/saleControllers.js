@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSaleFullPayments = exports.submitSaleFullPayment = exports.getSaleNegotiations = exports.submitSaleNegotiation = exports.verifySaleListing = exports.rejectSaleListing = exports.approveSaleListing = exports.updateSaleListing = exports.getSaleListing = exports.getSaleListings = exports.createSaleListing = exports.saleUpload = void 0;
+exports.getSaleFullPayments = exports.submitSaleFullPayment = exports.getSaleNegotiations = exports.submitSaleViewing = exports.submitSaleNegotiation = exports.verifySaleListing = exports.rejectSaleListing = exports.approveSaleListing = exports.updateSaleListing = exports.getSaleListing = exports.getSaleListings = exports.createSaleListing = exports.saleUpload = void 0;
 const tslib_1 = require("tslib");
 const database_1 = require("../utils/database");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const cloudinaryService_1 = require("../utils/cloudinaryService");
+const emailSubscriptionService_1 = require("../utils/emailSubscriptionService");
 const multer_1 = tslib_1.__importDefault(require("multer"));
 const storage = multer_1.default.memoryStorage();
 exports.saleUpload = (0, multer_1.default)({ storage });
@@ -32,6 +33,10 @@ const createSaleListing = async (req, res) => {
         if (errors.length)
             return res.status(400).json({ errors });
         const createdByUserId = req.user?.id;
+        const userCompany = await database_1.db.query.realEstateCompanies.findFirst({
+            where: (0, drizzle_orm_1.eq)(schema_1.realEstateCompanies.userId, createdByUserId),
+        });
+        const realEstateCompanyId = userCompany ? userCompany.id : null;
         let proofUrl = null;
         if (req.files && req.files.proof) {
             const proofFile = req.files.proof[0];
@@ -79,6 +84,7 @@ const createSaleListing = async (req, res) => {
             proofOfOwnershipUrl: proofUrl || body.proofOfOwnershipUrl || null,
             status: "Pending",
             createdByUserId,
+            realEstateCompanyId,
             submittedByRole: body.submittedByRole || null,
             propertyType: body.propertyType || null,
             lga: body.lga || null,
@@ -123,6 +129,7 @@ const createSaleListing = async (req, res) => {
             proofOfOwnershipUrl: schema_1.saleListings.proofOfOwnershipUrl,
             status: schema_1.saleListings.status,
             createdByUserId: schema_1.saleListings.createdByUserId,
+            realEstateCompanyId: schema_1.saleListings.realEstateCompanyId,
             approvedByAdminId: schema_1.saleListings.approvedByAdminId,
             approvedAt: schema_1.saleListings.approvedAt,
             rejectionReason: schema_1.saleListings.rejectionReason,
@@ -195,49 +202,27 @@ const createSaleListing = async (req, res) => {
 exports.createSaleListing = createSaleListing;
 const getSaleListings = async (req, res) => {
     try {
-        const { type, status, minPrice, maxPrice, city, state } = req.query;
-        let whereClauses = [];
+        const { type, search, status, priceMin, priceMax, companyId } = req.query;
+        const whereClauses = [];
         if (type)
             whereClauses.push((0, drizzle_orm_1.eq)(schema_1.saleListings.type, type));
         if (status)
             whereClauses.push((0, drizzle_orm_1.eq)(schema_1.saleListings.status, status));
-        if (city)
-            whereClauses.push((0, drizzle_orm_1.eq)(schema_1.saleListings.city, city));
-        if (state)
-            whereClauses.push((0, drizzle_orm_1.eq)(schema_1.saleListings.state, state));
-        if (minPrice)
-            whereClauses.push((0, drizzle_orm_1.gte)(schema_1.saleListings.price, Number(minPrice)));
-        if (maxPrice)
-            whereClauses.push((0, drizzle_orm_1.lte)(schema_1.saleListings.price, Number(maxPrice)));
-        const listings = await database_1.db
-            .select({
-            id: schema_1.saleListings.id,
-            type: schema_1.saleListings.type,
-            title: schema_1.saleListings.title,
-            description: schema_1.saleListings.description,
-            locationAddress: schema_1.saleListings.locationAddress,
-            city: schema_1.saleListings.city,
-            state: schema_1.saleListings.state,
-            country: schema_1.saleListings.country,
-            coordinates: schema_1.saleListings.coordinates,
-            size: schema_1.saleListings.size,
-            sizeUnit: schema_1.saleListings.sizeUnit,
-            price: schema_1.saleListings.price,
-            currency: schema_1.saleListings.currency,
-            features: schema_1.saleListings.features,
-            imageUrls: schema_1.saleListings.imageUrls,
-            videoUrls: schema_1.saleListings.videoUrls,
-            proofOfOwnershipUrl: schema_1.saleListings.proofOfOwnershipUrl,
-            status: schema_1.saleListings.status,
-            createdByUserId: schema_1.saleListings.createdByUserId,
-            approvedByAdminId: schema_1.saleListings.approvedByAdminId,
-            approvedAt: schema_1.saleListings.approvedAt,
-            rejectionReason: schema_1.saleListings.rejectionReason,
-            createdAt: schema_1.saleListings.createdAt,
-            updatedAt: schema_1.saleListings.updatedAt,
-        })
-            .from(schema_1.saleListings)
-            .where(whereClauses.length ? (0, drizzle_orm_1.and)(...whereClauses) : undefined);
+        if (search)
+            whereClauses.push((0, drizzle_orm_1.like)(schema_1.saleListings.title, `%${search}%`));
+        if (priceMin)
+            whereClauses.push((0, drizzle_orm_1.gte)(schema_1.saleListings.price, Number(priceMin)));
+        if (priceMax)
+            whereClauses.push((0, drizzle_orm_1.lte)(schema_1.saleListings.price, Number(priceMax)));
+        if (companyId)
+            whereClauses.push((0, drizzle_orm_1.eq)(schema_1.saleListings.realEstateCompanyId, Number(companyId)));
+        const listings = await database_1.db.query.saleListings.findMany({
+            where: whereClauses.length ? (0, drizzle_orm_1.and)(...whereClauses) : undefined,
+            with: {
+                company: true,
+            },
+            orderBy: (listings, { desc }) => [desc(listings.createdAt)],
+        });
         return res.status(200).json({ listings });
     }
     catch (error) {
@@ -248,37 +233,24 @@ const getSaleListings = async (req, res) => {
 exports.getSaleListings = getSaleListings;
 const getSaleListing = async (req, res) => {
     try {
-        const id = Number(req.params.id);
-        const [listing] = await database_1.db
-            .select({
-            id: schema_1.saleListings.id,
-            type: schema_1.saleListings.type,
-            title: schema_1.saleListings.title,
-            description: schema_1.saleListings.description,
-            locationAddress: schema_1.saleListings.locationAddress,
-            city: schema_1.saleListings.city,
-            state: schema_1.saleListings.state,
-            country: schema_1.saleListings.country,
-            coordinates: schema_1.saleListings.coordinates,
-            size: schema_1.saleListings.size,
-            sizeUnit: schema_1.saleListings.sizeUnit,
-            price: schema_1.saleListings.price,
-            currency: schema_1.saleListings.currency,
-            features: schema_1.saleListings.features,
-            imageUrls: schema_1.saleListings.imageUrls,
-            videoUrls: schema_1.saleListings.videoUrls,
-            proofOfOwnershipUrl: schema_1.saleListings.proofOfOwnershipUrl,
-            status: schema_1.saleListings.status,
-            createdByUserId: schema_1.saleListings.createdByUserId,
-            approvedByAdminId: schema_1.saleListings.approvedByAdminId,
-            approvedAt: schema_1.saleListings.approvedAt,
-            rejectionReason: schema_1.saleListings.rejectionReason,
-            createdAt: schema_1.saleListings.createdAt,
-            updatedAt: schema_1.saleListings.updatedAt,
-        })
-            .from(schema_1.saleListings)
-            .where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, id))
-            .limit(1);
+        const { id } = req.params;
+        let listing;
+        if (!isNaN(Number(id))) {
+            listing = await database_1.db.query.saleListings.findFirst({
+                where: (0, drizzle_orm_1.eq)(schema_1.saleListings.id, Number(id)),
+                with: {
+                    company: true,
+                }
+            });
+        }
+        else {
+            listing = await database_1.db.query.saleListings.findFirst({
+                where: (0, drizzle_orm_1.eq)(schema_1.saleListings.uuid, id),
+                with: {
+                    company: true,
+                }
+            });
+        }
         if (!listing)
             return res.status(404).json({ error: "Not found" });
         return res.status(200).json(listing);
@@ -291,11 +263,18 @@ const getSaleListing = async (req, res) => {
 exports.getSaleListing = getSaleListing;
 const updateSaleListing = async (req, res) => {
     try {
-        const id = Number(req.params.id);
+        const { id } = req.params;
         const body = req.body;
-        const [existing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, id)).limit(1);
+        let existing;
+        if (!isNaN(Number(id))) {
+            [existing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, Number(id))).limit(1);
+        }
+        else {
+            [existing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.uuid, id)).limit(1);
+        }
         if (!existing)
             return res.status(404).json({ error: "Not found" });
+        const listingId = existing.id;
         const [updated] = await database_1.db.update(schema_1.saleListings).set({
             title: body.title ?? existing.title,
             description: body.description ?? existing.description,
@@ -310,7 +289,7 @@ const updateSaleListing = async (req, res) => {
             imageUrls: body.imageUrls ?? existing.imageUrls,
             videoUrls: body.videoUrls ?? existing.videoUrls,
             proofOfOwnershipUrl: body.proofOfOwnershipUrl ?? existing.proofOfOwnershipUrl,
-        }).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, id)).returning({
+        }).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, listingId)).returning({
             id: schema_1.saleListings.id,
             type: schema_1.saleListings.type,
             title: schema_1.saleListings.title,
@@ -329,7 +308,7 @@ const updateSaleListing = async (req, res) => {
             rejectionReason: schema_1.saleListings.rejectionReason,
         });
         await database_1.db.insert(schema_1.saleListingAuditLog).values({
-            listingId: id,
+            listingId: listingId,
             action: "Updated",
             actorUserId: req.user?.id,
             metadata: { fields: Object.keys(body || {}) },
@@ -344,14 +323,24 @@ const updateSaleListing = async (req, res) => {
 exports.updateSaleListing = updateSaleListing;
 const approveSaleListing = async (req, res) => {
     try {
-        const id = Number(req.params.id);
+        const { id } = req.params;
         const adminUserId = req.user?.id;
+        let listingId;
+        if (!isNaN(Number(id))) {
+            listingId = Number(id);
+        }
+        else {
+            const [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.uuid, id)).limit(1);
+            if (!listing)
+                return res.status(404).json({ error: "Not found" });
+            listingId = listing.id;
+        }
         const [updated] = await database_1.db.update(schema_1.saleListings).set({
             status: "Approved",
             approvedByAdminId: undefined,
             approvedAt: new Date(),
             rejectionReason: null,
-        }).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, id)).returning({
+        }).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, listingId)).returning({
             id: schema_1.saleListings.id,
             type: schema_1.saleListings.type,
             title: schema_1.saleListings.title,
@@ -370,7 +359,7 @@ const approveSaleListing = async (req, res) => {
             rejectionReason: schema_1.saleListings.rejectionReason,
         });
         await database_1.db.insert(schema_1.saleListingAuditLog).values({
-            listingId: id,
+            listingId: listingId,
             action: "Approved",
             actorUserId: adminUserId,
         });
@@ -384,15 +373,25 @@ const approveSaleListing = async (req, res) => {
 exports.approveSaleListing = approveSaleListing;
 const rejectSaleListing = async (req, res) => {
     try {
-        const id = Number(req.params.id);
+        const { id } = req.params;
         const adminUserId = req.user?.id;
         const reason = (req.body && req.body.reason) || "";
+        let listingId;
+        if (!isNaN(Number(id))) {
+            listingId = Number(id);
+        }
+        else {
+            const [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.uuid, id)).limit(1);
+            if (!listing)
+                return res.status(404).json({ error: "Not found" });
+            listingId = listing.id;
+        }
         const [updated] = await database_1.db.update(schema_1.saleListings).set({
             status: "Rejected",
             approvedByAdminId: undefined,
             approvedAt: null,
             rejectionReason: reason,
-        }).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, id)).returning({
+        }).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, listingId)).returning({
             id: schema_1.saleListings.id,
             type: schema_1.saleListings.type,
             title: schema_1.saleListings.title,
@@ -411,7 +410,7 @@ const rejectSaleListing = async (req, res) => {
             rejectionReason: schema_1.saleListings.rejectionReason,
         });
         await database_1.db.insert(schema_1.saleListingAuditLog).values({
-            listingId: id,
+            listingId: listingId,
             action: "Rejected",
             actorUserId: adminUserId,
             metadata: { reason },
@@ -463,22 +462,30 @@ const verifySaleListing = async (req, res) => {
 exports.verifySaleListing = verifySaleListing;
 const submitSaleNegotiation = async (req, res) => {
     try {
-        const id = Number(req.params.id);
-        const [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, id)).limit(1);
+        const { id } = req.params;
+        let listing;
+        if (!isNaN(Number(id))) {
+            [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, Number(id))).limit(1);
+        }
+        else {
+            [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.uuid, id)).limit(1);
+        }
         if (!listing) {
             res.status(404).json({ error: "Not found" });
             return;
         }
+        const listingId = listing.id;
         const actorUserId = req.user?.id;
         const { nameOrCompany, phone, email, address, proposedPrice, } = req.body || {};
         if (!nameOrCompany || !phone || !email || !address) {
             res.status(400).json({ error: "Missing required fields" });
             return;
         }
+        await (0, emailSubscriptionService_1.sendNegotiationRequestToAdminEmail)(nameOrCompany, proposedPrice ? String(proposedPrice) : "N/A", email, phone, listing.title);
         const [log] = await database_1.db
             .insert(schema_1.saleListingAuditLog)
             .values({
-            listingId: id,
+            listingId: listingId,
             action: "NegotiationRequested",
             actorUserId,
             metadata: {
@@ -498,6 +505,52 @@ const submitSaleNegotiation = async (req, res) => {
     }
 };
 exports.submitSaleNegotiation = submitSaleNegotiation;
+const submitSaleViewing = async (req, res) => {
+    try {
+        const { id } = req.params;
+        let listing;
+        if (!isNaN(Number(id))) {
+            [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.id, Number(id))).limit(1);
+        }
+        else {
+            [listing] = await database_1.db.select().from(schema_1.saleListings).where((0, drizzle_orm_1.eq)(schema_1.saleListings.uuid, id)).limit(1);
+        }
+        if (!listing) {
+            res.status(404).json({ error: "Not found" });
+            return;
+        }
+        const listingId = listing.id;
+        const actorUserId = req.user?.id;
+        const { name, email, phone, date, time, message, } = req.body || {};
+        if (!name || !email || !phone || !date || !time) {
+            res.status(400).json({ error: "Missing required fields" });
+            return;
+        }
+        await (0, emailSubscriptionService_1.sendViewingRequestToAdminEmail)(name, listing.title, date, time, email, phone, message);
+        const [log] = await database_1.db
+            .insert(schema_1.saleListingAuditLog)
+            .values({
+            listingId: listingId,
+            action: "ViewingRequested",
+            actorUserId: actorUserId || "guest",
+            metadata: {
+                name,
+                email,
+                phone,
+                date,
+                time,
+                message,
+            },
+        })
+            .returning();
+        res.status(201).json(log);
+    }
+    catch (error) {
+        console.error("Error submitting viewing:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+exports.submitSaleViewing = submitSaleViewing;
 const getSaleNegotiations = async (req, res) => {
     try {
         const id = Number(req.params.id);

@@ -45,6 +45,7 @@ const publicLandlordAcquisitionRoutes_1 = tslib_1.__importDefault(require("./rou
 const landlordAcquisitionRoutes_1 = tslib_1.__importDefault(require("./routes/landlordAcquisitionRoutes"));
 const blogRoutes_1 = tslib_1.__importDefault(require("./routes/blogRoutes"));
 const publicBlogRoutes_1 = tslib_1.__importDefault(require("./routes/publicBlogRoutes"));
+const realEstateCompanyRoutes_1 = tslib_1.__importDefault(require("./routes/realEstateCompanyRoutes"));
 const app = (0, express_1.default)();
 const server = (0, http_1.createServer)(app);
 database_1.databaseService.connect().catch(console.error);
@@ -110,6 +111,7 @@ app.use("/cloudinary", cloudinaryUploadRoutes_1.default);
 app.use("/agent-properties", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["admin", "agent"]), agentPropertyRoutes_1.default);
 app.use("/notifications", notifications_1.default);
 app.use("/sales", saleRoutes_1.default);
+app.use("/real-estate-companies", realEstateCompanyRoutes_1.default);
 app.use("/landlord-acquisitions", publicLandlordAcquisitionRoutes_1.default);
 app.use("/landlord-acquisitions", landlordAcquisitionRoutes_1.default);
 app.use("/blog", publicBlogRoutes_1.default);

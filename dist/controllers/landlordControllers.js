@@ -102,6 +102,13 @@ const adminCreateLandlord = async (req, res) => {
         await database_1.db.update(schema_1.users)
             .set({ emailVerified: true })
             .where((0, drizzle_orm_1.eq)(schema_1.users.id, user.id));
+        let createdByAgentId;
+        if (req.user?.role === 'agent') {
+            const agentRecord = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, req.user.id)).limit(1);
+            if (agentRecord[0]) {
+                createdByAgentId = agentRecord[0].id;
+            }
+        }
         const landlordProfileResult = await database_1.db.insert(schema_1.landlords).values({
             cognitoId: user.legacyCognitoId || user.id,
             userId: user.id,
@@ -110,7 +117,8 @@ const adminCreateLandlord = async (req, res) => {
             phoneNumber,
             bankName,
             accountNumber,
-            accountName
+            accountName,
+            createdByAgentId
         }).returning();
         const landlordProfile = landlordProfileResult[0];
         try {
@@ -149,8 +157,19 @@ const adminCreateLandlord = async (req, res) => {
     }
 };
 exports.adminCreateLandlord = adminCreateLandlord;
-const listLandlords = async (_req, res) => {
+const listLandlords = async (req, res) => {
     try {
+        let whereClause = undefined;
+        if (req.user?.role === 'agent') {
+            const agentRecord = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, req.user.id)).limit(1);
+            if (agentRecord[0]) {
+                whereClause = (0, drizzle_orm_1.eq)(schema_1.landlords.createdByAgentId, agentRecord[0].id);
+            }
+            else {
+                res.json({ success: true, data: [] });
+                return;
+            }
+        }
         const rows = await database_1.db.select({
             id: schema_1.landlords.id,
             name: schema_1.landlords.name,
@@ -163,6 +182,7 @@ const listLandlords = async (_req, res) => {
         })
             .from(schema_1.landlords)
             .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, schema_1.properties.landlordCognitoId))
+            .where(whereClause)
             .groupBy(schema_1.landlords.id);
         res.json({ success: true, data: rows });
     }
@@ -173,22 +193,30 @@ const listLandlords = async (_req, res) => {
 exports.listLandlords = listLandlords;
 const impersonateLandlord = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const { userId: paramId } = req.params;
+        console.log(`Attempting to impersonate user/landlord with ID: ${paramId}`);
+        console.log(`Requester: ${JSON.stringify(req.user)}`);
+        let targetUserId = paramId;
+        const landlordResult = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, paramId));
+        if (landlordResult.length > 0 && landlordResult[0].userId) {
+            targetUserId = landlordResult[0].userId;
+            console.log(`Resolved landlord cognitoId ${paramId} to userId ${targetUserId}`);
+        }
         const session = await auth_1.auth.api.impersonateUser({
-            body: { userId },
+            body: { userId: targetUserId },
             headers: req.headers
         });
         try {
             await database_1.db.insert(schema_1.activityFeeds).values({
                 type: 'AgentAssigned',
                 title: 'Admin/Agent quick login',
-                description: `User ${req.user?.email || req.user?.id} impersonated landlord ${userId}`,
+                description: `User ${req.user?.email || req.user?.id} impersonated landlord ${paramId}`,
                 actorId: req.user?.id || 'system',
                 actorType: req.user?.role || 'admin',
                 actorName: req.user?.name || 'Admin',
                 targetId: null,
                 targetType: 'landlord',
-                metadata: { landlordUserId: userId },
+                metadata: { landlordUserId: targetUserId, originalParamId: paramId },
                 isPublic: false,
             });
         }
@@ -196,7 +224,15 @@ const impersonateLandlord = async (req, res) => {
         res.json({ success: true, data: session });
     }
     catch (error) {
-        res.status(500).json({ message: `Error impersonating landlord: ${error.message}` });
+        console.error("Impersonation error details:", error);
+        if (error.body) {
+            console.error("Error body:", error.body);
+        }
+        res.status(500).json({
+            message: `Error impersonating landlord: ${error.message}`,
+            details: error.toString(),
+            stack: error.stack
+        });
     }
 };
 exports.impersonateLandlord = impersonateLandlord;

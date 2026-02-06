@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { betterAuthMiddleware } from "../middleware/betterAuthMiddleware";
-import { saleUpload, createSaleListing, getSaleListings, getSaleListing, updateSaleListing, approveSaleListing, rejectSaleListing, verifySaleListing, submitSaleNegotiation, getSaleNegotiations, submitSaleFullPayment, getSaleFullPayments } from "../controllers/saleControllers";
+import { saleUpload, createSaleListing, getSaleListings, getSaleListing, updateSaleListing, approveSaleListing, rejectSaleListing, verifySaleListing, submitSaleNegotiation, submitSaleViewing, getSaleNegotiations, submitSaleFullPayment, getSaleFullPayments } from "../controllers/saleControllers";
 
 const router = Router();
 
@@ -74,9 +74,16 @@ router.post(
 // Negotiations
 router.post(
   "/listings/:id/negotiations",
-  betterAuthMiddleware(["tenant", "landlord", "sale", "agent", "admin"]),
+  betterAuthMiddleware(["tenant", "landlord", "sale", "agent", "admin", "user"]),
   submitSaleNegotiation
 );
+
+router.post(
+  "/listings/:id/viewings",
+  betterAuthMiddleware(["tenant", "landlord", "sale", "agent", "admin", "user"]),
+  submitSaleViewing
+);
+
 router.get(
   "/listings/:id/negotiations",
   betterAuthMiddleware(["admin"]),

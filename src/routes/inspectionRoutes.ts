@@ -1,7 +1,7 @@
 import express from "express";
 import { eq } from "drizzle-orm";
 import { authMiddleware } from "../middleware/authMiddleware";
-import { sendInspectionRequestEmail, sendInspectionApprovedEmail } from "../utils/emailSubscriptionService";
+import { sendInspectionRequestEmail, sendInspectionApprovedEmail, sendInspectionRequestToAdminEmail } from "../utils/emailSubscriptionService";
 import { db } from "../utils/database";
 import { inspectionLimits, inspections, properties, agents, locations } from "../db/schema";
 
@@ -84,7 +84,7 @@ router.post("/request", authMiddleware(["tenant"]), async (req, res) => {
       return;
     }
 
-    // Get property details to find nearest agent
+    // Get property details
     const [property] = await db.select().from(properties)
       .where(eq(properties.id, propertyId))
       .limit(1);
@@ -94,11 +94,7 @@ router.post("/request", authMiddleware(["tenant"]), async (req, res) => {
       return;
     }
 
-    // Find nearest agent (simplified - in real implementation, use geolocation)
-    const [nearestAgent] = await db.select().from(agents)
-      .limit(1);
-
-    // Create inspection
+    // Create inspection - Agent ID is NULL, to be handled by Admin
     const [inspection] = await db.insert(inspections)
       .values({
         propertyId,
@@ -109,7 +105,7 @@ router.post("/request", authMiddleware(["tenant"]), async (req, res) => {
         tenantPhone,
         preferredTime,
         message,
-        agentId: nearestAgent?.id,
+        agentId: null, // Removed automatic agent assignment
         depositPaid,
         depositAmount,
         paymentReference
@@ -125,7 +121,7 @@ router.post("/request", authMiddleware(["tenant"]), async (req, res) => {
         .where(eq(inspectionLimits.tenantCognitoId, tenantCognitoId));
     }
 
-    // Send email notification to tenant about pending request
+    // Send email notifications
     try {
       // Get property location for email
       const [propertyLocation] = await db.select({
@@ -137,6 +133,7 @@ router.post("/request", authMiddleware(["tenant"]), async (req, res) => {
       .limit(1);
       
       if (propertyLocation) {
+        // Email to Tenant
         await sendInspectionRequestEmail(
           tenantEmail,
           tenantName,
@@ -145,6 +142,16 @@ router.post("/request", authMiddleware(["tenant"]), async (req, res) => {
           preferredTime
         );
         console.log(`Inspection request email sent to tenant: ${tenantEmail}`);
+
+        // Email to Admin
+        await sendInspectionRequestToAdminEmail(
+          tenantName,
+          propertyLocation.address,
+          scheduledDate.toLocaleDateString(),
+          preferredTime,
+          tenantEmail,
+          tenantPhone
+        );
       }
     } catch (emailError) {
       console.error('Error sending inspection request email:', emailError);

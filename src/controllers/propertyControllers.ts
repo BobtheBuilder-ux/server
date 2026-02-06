@@ -102,12 +102,13 @@ export const getProperties = async (
         propertyType: properties.propertyType,
         locationId: properties.locationId,
         photoUrls: properties.photoUrls,
-        amenities: properties.amenities,
-        postedDate: properties.postedDate,
-        landlordCognitoId: properties.landlordCognitoId,
-        availableUnits: properties.availableUnits,
-        landlord: {
-          id: landlords.id,
+      amenities: properties.amenities,
+      postedDate: properties.postedDate,
+      landlordCognitoId: properties.landlordCognitoId,
+      availableUnits: properties.availableUnits,
+      uuid: properties.uuid, // Added uuid to response
+      landlord: {
+        id: landlords.id,
           name: landlords.name,
           email: landlords.email,
           phoneNumber: landlords.phoneNumber
@@ -160,6 +161,14 @@ export const getProperty = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    let whereClause;
+
+    if (!isNaN(Number(id))) {
+      whereClause = eq(properties.id, Number(id));
+    } else {
+      whereClause = eq(properties.uuid, id);
+    }
+
     const propertyResult = await db.select({
       id: properties.id,
       name: properties.name,
@@ -173,6 +182,7 @@ export const getProperty = async (
       amenities: properties.amenities,
       postedDate: properties.postedDate,
       availableUnits: properties.availableUnits,
+      uuid: properties.uuid, // Added uuid to response
 
       locationId: properties.locationId,
       landlord: {
@@ -191,7 +201,7 @@ export const getProperty = async (
     .from(properties)
     .leftJoin(landlords, eq(properties.landlordCognitoId, landlords.cognitoId))
     .leftJoin(locations, eq(properties.locationId, locations.id))
-    .where(eq(properties.id, Number(id)))
+    .where(whereClause)
     .limit(1);
 
     if (propertyResult.length === 0) {

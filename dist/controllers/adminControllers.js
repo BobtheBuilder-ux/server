@@ -209,12 +209,30 @@ const getAllUsers = async (_req, res) => {
             email: schema_1.agents.email,
             phoneNumber: schema_1.agents.phoneNumber,
         }).from(schema_1.agents);
-        const users = [
+        const bloggersResult = await database_1.db.select({
+            id: schema_1.bloggers.id,
+            userId: schema_1.bloggers.userId,
+            name: schema_1.bloggers.displayName,
+            email: schema_1.users.email,
+        })
+            .from(schema_1.bloggers)
+            .leftJoin(schema_1.users, (0, drizzle_orm_1.eq)(schema_1.bloggers.userId, schema_1.users.id));
+        const usersList = [
             ...tenantsResult.map(tenant => ({ ...tenant, role: 'tenant', status: 'active', createdAt: new Date() })),
             ...landlordsResult.map(landlord => ({ ...landlord, role: 'landlord', status: 'active', createdAt: new Date() })),
             ...agentsResult.map(agent => ({ ...agent, role: 'agent', status: 'active', createdAt: new Date() })),
+            ...bloggersResult.map(blogger => ({
+                id: blogger.id,
+                cognitoId: blogger.userId,
+                name: blogger.name,
+                email: blogger.email,
+                phoneNumber: null,
+                role: 'blogger',
+                status: 'active',
+                createdAt: new Date()
+            })),
         ];
-        res.json(users);
+        res.json(usersList);
     }
     catch (error) {
         res.status(500).json({ message: `Error fetching users: ${error.message}` });
@@ -567,6 +585,10 @@ exports.getAdmin = getAdmin;
 const getAgent = async (req, res) => {
     try {
         const { cognitoId } = req.params;
+        if (req.user?.role === 'agent' && req.user.id !== cognitoId) {
+            res.status(403).json({ message: "Access denied: You can only view your own profile" });
+            return;
+        }
         console.log("Getting agent with cognitoId:", cognitoId);
         const agentResult = await database_1.db.select({
             id: schema_1.agents.id,
@@ -575,7 +597,12 @@ const getAgent = async (req, res) => {
             email: schema_1.agents.email,
             phoneNumber: schema_1.agents.phoneNumber,
             address: schema_1.agents.address,
-        }).from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, cognitoId)).limit(1);
+            isOnboardingComplete: schema_1.users.isOnboardingComplete,
+        })
+            .from(schema_1.agents)
+            .leftJoin(schema_1.users, (0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, schema_1.users.id))
+            .where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, cognitoId))
+            .limit(1);
         const agent = agentResult[0] || null;
         console.log("Agent found:", agent);
         if (!agent) {

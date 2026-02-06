@@ -17,7 +17,7 @@ router.put("/properties/:propertyId/status", (0, authMiddleware_1.authMiddleware
 router.delete("/properties/:propertyId", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.PROPERTY_MANAGEMENT]), adminControllers_1.deleteProperty);
 router.get("/settings", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.SYSTEM_SETTINGS]), adminControllers_1.getAdminSettings);
 router.put("/settings", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.SYSTEM_SETTINGS]), adminControllers_1.updateAdminSettings);
-router.get("/agents/:cognitoId", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.AGENT_MANAGEMENT]), adminControllers_1.getAgent);
+router.get("/agents/:cognitoId", (0, authMiddleware_1.authMiddleware)(["admin", "agent"], []), adminControllers_1.getAgent);
 router.get("/admins/:cognitoId", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), adminControllers_1.getAdmin);
 router.get("/landlord-registrations", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.USER_MANAGEMENT]), adminControllers_1.getLandlordRegistrations);
 router.get("/landlord-registration-stats", (0, authMiddleware_1.authMiddleware)(["admin"], [authMiddleware_1.AdminPrivilege.ANALYTICS_ACCESS]), adminControllers_1.getLandlordRegistrationStats);

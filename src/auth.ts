@@ -186,6 +186,10 @@ export const auth = betterAuth({
       }
     }),
     after: createAuthMiddleware(async (ctx) => {
+      // Skip post-registration hooks for admin-created users (handled in controller)
+      if (ctx.headers?.get("x-admin-create") === "true") {
+        return;
+      }
       
       if (ctx.path === "/sign-up/email" && ctx.context.returned) {
         const returned = ctx.context.returned as any;

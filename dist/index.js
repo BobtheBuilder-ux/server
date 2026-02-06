@@ -97,7 +97,7 @@ app.use("/payments", paymentRoutes_1.default);
 app.use("/tenants", publicTenantRoutes_1.default);
 app.use("/inspections", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "agent", "admin"]), inspectionRoutes_1.default);
 app.use("/tenants", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["tenant", "landlord", "agent", "admin"]), tenantRoutes_1.default);
-app.use("/landlords", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["landlord", "admin"]), landlordRoutes_1.default);
+app.use("/landlords", (0, betterAuthMiddleware_1.betterAuthMiddleware)(["landlord", "admin", "agent"]), landlordRoutes_1.default);
 app.use("/admin", publicAdminRoutes_1.default);
 app.use("/agent", publicAgentRoutes_1.default);
 app.use("/surveys", surveyRoutes_1.default);

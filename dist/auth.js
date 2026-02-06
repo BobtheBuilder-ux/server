@@ -140,6 +140,9 @@ exports.auth = (0, better_auth_1.betterAuth)({
             }
         }),
         after: (0, api_1.createAuthMiddleware)(async (ctx) => {
+            if (ctx.headers?.get("x-admin-create") === "true") {
+                return;
+            }
             if (ctx.path === "/sign-up/email" && ctx.context.returned) {
                 const returned = ctx.context.returned;
                 if (returned?.user?.id && returned?.user?.email) {

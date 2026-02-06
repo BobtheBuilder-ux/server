@@ -18,19 +18,36 @@ export const getAgentLeads = async (
 };
 
 export const getAgentClients = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Get landlords and tenants as clients
+    const agentCognitoId = req.user?.id;
+    
+    if (!agentCognitoId) {
+      res.status(401).json({ message: 'Agent authentication required' });
+      return;
+    }
+    
+    // Find the agent by userId
+    const agentResult = await db.select().from(agents).where(eq(agents.userId, agentCognitoId)).limit(1);
+    
+    if (!agentResult || agentResult.length === 0) {
+      res.status(404).json({ message: 'Agent not found' });
+      return;
+    }
+    
+    const agent = agentResult[0];
+
+    // Get landlords created by this agent
     const landlordsResult = await db.select()
       .from(landlords)
-      .leftJoin(properties, eq(properties.landlordCognitoId, landlords.cognitoId));
+      .leftJoin(properties, eq(properties.landlordCognitoId, landlords.cognitoId))
+      .where(eq(landlords.createdByAgentId, agent.id));
 
-    const tenantsResult = await db.select()
-      .from(tenants)
-      .leftJoin(leases, eq(leases.tenantCognitoId, tenants.cognitoId))
-      .leftJoin(properties, eq(leases.propertyId, properties.id));
+    // Filter tenants - The user requested that agents only see landlords they created.
+    // We will return an empty list for tenants to strictly follow "only want them to see the landlords profile".
+    const tenantsResult: any[] = []; 
 
     // Group landlords with their properties
     const landlordsWithProperties = landlordsResult.reduce((acc: any[], result) => {
@@ -53,27 +70,6 @@ export const getAgentClients = async (
       return acc;
     }, []);
 
-    // Group tenants with their properties
-    const tenantsWithProperties = tenantsResult.reduce((acc: any[], result) => {
-      const tenant = result.Tenant;
-      const property = result.Property;
-      
-      let existingTenant = acc.find(t => t.id === tenant.id);
-      if (!existingTenant) {
-        existingTenant = {
-          ...tenant,
-          properties: []
-        };
-        acc.push(existingTenant);
-      }
-      
-      if (property) {
-        existingTenant.properties.push(property);
-      }
-      
-      return acc;
-    }, []);
-
     const clients = [
       ...landlordsWithProperties.map(landlord => ({
         id: landlord.id,
@@ -84,17 +80,6 @@ export const getAgentClients = async (
         status: "active",
         propertiesCount: landlord.managedProperties.length,
         totalValue: landlord.managedProperties.reduce((sum: number, prop: any) => sum + prop.pricePerYear, 0),
-        lastContact: new Date(),
-      })),
-      ...tenantsWithProperties.map(tenant => ({
-        id: tenant.id,
-        name: tenant.name,
-        email: tenant.email,
-        phoneNumber: tenant.phoneNumber,
-        type: "tenant",
-        status: "active",
-        propertiesCount: tenant.properties.length,
-        totalValue: tenant.properties.reduce((sum: number, prop: any) => sum + prop.pricePerYear, 0),
         lastContact: new Date(),
       })),
     ];
@@ -117,8 +102,8 @@ export const getAgentTasks = async (
       return;
     }
     
-    // Find the agent by cognitoId
-    const agentResult = await db.select().from(agents).where(eq(agents.cognitoId, agentCognitoId)).limit(1);
+    // Find the agent by userId
+    const agentResult = await db.select().from(agents).where(eq(agents.userId, agentCognitoId)).limit(1);
     
     if (!agentResult || agentResult.length === 0) {
       res.status(404).json({ message: 'Agent not found' });
@@ -175,8 +160,8 @@ export const updateTaskStatus = async (
       return;
     }
     
-    // Find the agent by cognitoId
-    const agentResult = await db.select().from(agents).where(eq(agents.cognitoId, agentCognitoId)).limit(1);
+    // Find the agent by userId
+    const agentResult = await db.select().from(agents).where(eq(agents.userId, agentCognitoId)).limit(1);
     
     if (!agentResult || agentResult.length === 0) {
       res.status(404).json({ message: 'Agent not found' });
@@ -230,7 +215,7 @@ export const updateAgentSettings = async (
         phoneNumber,
         address,
       })
-      .where(eq(agents.cognitoId, cognitoId))
+      .where(eq(agents.userId, cognitoId))
       .returning();
 
     const updatedAgent = updatedAgentResult[0];
@@ -270,19 +255,32 @@ export const getAgentProperties = async (
 };
 
 export const getAgentApplications = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Get landlords and tenants as clients
+    const agentCognitoId = req.user?.id;
+    
+    if (!agentCognitoId) {
+      res.status(401).json({ message: 'Agent authentication required' });
+      return;
+    }
+    
+    // Find the agent by userId
+    const agentResult = await db.select().from(agents).where(eq(agents.userId, agentCognitoId)).limit(1);
+    
+    if (!agentResult || agentResult.length === 0) {
+      res.status(404).json({ message: 'Agent not found' });
+      return;
+    }
+    
+    const agent = agentResult[0];
+
+    // Get landlords created by this agent
     const landlordsResult = await db.select()
       .from(landlords)
-      .leftJoin(properties, eq(properties.landlordCognitoId, landlords.cognitoId));
-
-    const tenantsResult = await db.select()
-      .from(tenants)
-      .leftJoin(leases, eq(leases.tenantCognitoId, tenants.cognitoId))
-      .leftJoin(properties, eq(leases.propertyId, properties.id));
+      .leftJoin(properties, eq(properties.landlordCognitoId, landlords.cognitoId))
+      .where(eq(landlords.createdByAgentId, agent.id));
 
     // Group landlords with their properties
     const landlordsWithProperties = landlordsResult.reduce((acc: any[], result) => {
@@ -305,27 +303,7 @@ export const getAgentApplications = async (
       return acc;
     }, []);
 
-    // Group tenants with their properties
-    const tenantsWithProperties = tenantsResult.reduce((acc: any[], result) => {
-      const tenant = result.Tenant;
-      const property = result.Property;
-      
-      let existingTenant = acc.find(t => t.id === tenant.id);
-      if (!existingTenant) {
-        existingTenant = {
-          ...tenant,
-          properties: []
-        };
-        acc.push(existingTenant);
-      }
-      
-      if (property) {
-        existingTenant.properties.push(property);
-      }
-      
-      return acc;
-    }, []);
-
+    // Return only landlords, no tenants, as per "only want them to see the landlords profile they created"
     const clients = [
       ...landlordsWithProperties.map(landlord => ({
         id: landlord.id,
@@ -336,17 +314,6 @@ export const getAgentApplications = async (
         status: "active",
         propertiesCount: landlord.managedProperties.length,
         totalValue: landlord.managedProperties.reduce((sum: number, prop: any) => sum + prop.pricePerYear, 0),
-        lastContact: new Date(),
-      })),
-      ...tenantsWithProperties.map(tenant => ({
-        id: tenant.id,
-        name: tenant.name,
-        email: tenant.email,
-        phoneNumber: tenant.phoneNumber,
-        type: "tenant",
-        status: "active",
-        propertiesCount: tenant.properties.length,
-        totalValue: tenant.properties.reduce((sum: number, prop: any) => sum + prop.pricePerYear, 0),
         lastContact: new Date(),
       })),
     ];

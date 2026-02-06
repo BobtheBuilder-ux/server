@@ -14,15 +14,24 @@ const getAgentLeads = async (_req, res) => {
     }
 };
 exports.getAgentLeads = getAgentLeads;
-const getAgentClients = async (_req, res) => {
+const getAgentClients = async (req, res) => {
     try {
+        const agentCognitoId = req.user?.id;
+        if (!agentCognitoId) {
+            res.status(401).json({ message: 'Agent authentication required' });
+            return;
+        }
+        const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, agentCognitoId)).limit(1);
+        if (!agentResult || agentResult.length === 0) {
+            res.status(404).json({ message: 'Agent not found' });
+            return;
+        }
+        const agent = agentResult[0];
         const landlordsResult = await database_1.db.select()
             .from(schema_1.landlords)
-            .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId));
-        const tenantsResult = await database_1.db.select()
-            .from(schema_1.tenants)
-            .leftJoin(schema_1.leases, (0, drizzle_orm_1.eq)(schema_1.leases.tenantCognitoId, schema_1.tenants.cognitoId))
-            .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.leases.propertyId, schema_1.properties.id));
+            .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId))
+            .where((0, drizzle_orm_1.eq)(schema_1.landlords.createdByAgentId, agent.id));
+        const tenantsResult = [];
         const landlordsWithProperties = landlordsResult.reduce((acc, result) => {
             const landlord = result.Landlord;
             const property = result.Property;
@@ -39,22 +48,6 @@ const getAgentClients = async (_req, res) => {
             }
             return acc;
         }, []);
-        const tenantsWithProperties = tenantsResult.reduce((acc, result) => {
-            const tenant = result.Tenant;
-            const property = result.Property;
-            let existingTenant = acc.find(t => t.id === tenant.id);
-            if (!existingTenant) {
-                existingTenant = {
-                    ...tenant,
-                    properties: []
-                };
-                acc.push(existingTenant);
-            }
-            if (property) {
-                existingTenant.properties.push(property);
-            }
-            return acc;
-        }, []);
         const clients = [
             ...landlordsWithProperties.map(landlord => ({
                 id: landlord.id,
@@ -65,17 +58,6 @@ const getAgentClients = async (_req, res) => {
                 status: "active",
                 propertiesCount: landlord.managedProperties.length,
                 totalValue: landlord.managedProperties.reduce((sum, prop) => sum + prop.pricePerYear, 0),
-                lastContact: new Date(),
-            })),
-            ...tenantsWithProperties.map(tenant => ({
-                id: tenant.id,
-                name: tenant.name,
-                email: tenant.email,
-                phoneNumber: tenant.phoneNumber,
-                type: "tenant",
-                status: "active",
-                propertiesCount: tenant.properties.length,
-                totalValue: tenant.properties.reduce((sum, prop) => sum + prop.pricePerYear, 0),
                 lastContact: new Date(),
             })),
         ];
@@ -93,7 +75,7 @@ const getAgentTasks = async (req, res) => {
             res.status(401).json({ message: 'Agent authentication required' });
             return;
         }
-        const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, agentCognitoId)).limit(1);
+        const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, agentCognitoId)).limit(1);
         if (!agentResult || agentResult.length === 0) {
             res.status(404).json({ message: 'Agent not found' });
             return;
@@ -135,7 +117,7 @@ const updateTaskStatus = async (req, res) => {
             res.status(401).json({ message: 'Agent authentication required' });
             return;
         }
-        const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, agentCognitoId)).limit(1);
+        const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, agentCognitoId)).limit(1);
         if (!agentResult || agentResult.length === 0) {
             res.status(404).json({ message: 'Agent not found' });
             return;
@@ -173,7 +155,7 @@ const updateAgentSettings = async (req, res) => {
             phoneNumber,
             address,
         })
-            .where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, cognitoId))
+            .where((0, drizzle_orm_1.eq)(schema_1.agents.userId, cognitoId))
             .returning();
         const updatedAgent = updatedAgentResult[0];
         await database_1.db.update(schema_1.users)
@@ -205,15 +187,23 @@ const getAgentProperties = async (_req, res) => {
     }
 };
 exports.getAgentProperties = getAgentProperties;
-const getAgentApplications = async (_req, res) => {
+const getAgentApplications = async (req, res) => {
     try {
+        const agentCognitoId = req.user?.id;
+        if (!agentCognitoId) {
+            res.status(401).json({ message: 'Agent authentication required' });
+            return;
+        }
+        const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, agentCognitoId)).limit(1);
+        if (!agentResult || agentResult.length === 0) {
+            res.status(404).json({ message: 'Agent not found' });
+            return;
+        }
+        const agent = agentResult[0];
         const landlordsResult = await database_1.db.select()
             .from(schema_1.landlords)
-            .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId));
-        const tenantsResult = await database_1.db.select()
-            .from(schema_1.tenants)
-            .leftJoin(schema_1.leases, (0, drizzle_orm_1.eq)(schema_1.leases.tenantCognitoId, schema_1.tenants.cognitoId))
-            .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.leases.propertyId, schema_1.properties.id));
+            .leftJoin(schema_1.properties, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId))
+            .where((0, drizzle_orm_1.eq)(schema_1.landlords.createdByAgentId, agent.id));
         const landlordsWithProperties = landlordsResult.reduce((acc, result) => {
             const landlord = result.Landlord;
             const property = result.Property;
@@ -230,22 +220,6 @@ const getAgentApplications = async (_req, res) => {
             }
             return acc;
         }, []);
-        const tenantsWithProperties = tenantsResult.reduce((acc, result) => {
-            const tenant = result.Tenant;
-            const property = result.Property;
-            let existingTenant = acc.find(t => t.id === tenant.id);
-            if (!existingTenant) {
-                existingTenant = {
-                    ...tenant,
-                    properties: []
-                };
-                acc.push(existingTenant);
-            }
-            if (property) {
-                existingTenant.properties.push(property);
-            }
-            return acc;
-        }, []);
         const clients = [
             ...landlordsWithProperties.map(landlord => ({
                 id: landlord.id,
@@ -256,17 +230,6 @@ const getAgentApplications = async (_req, res) => {
                 status: "active",
                 propertiesCount: landlord.managedProperties.length,
                 totalValue: landlord.managedProperties.reduce((sum, prop) => sum + prop.pricePerYear, 0),
-                lastContact: new Date(),
-            })),
-            ...tenantsWithProperties.map(tenant => ({
-                id: tenant.id,
-                name: tenant.name,
-                email: tenant.email,
-                phoneNumber: tenant.phoneNumber,
-                type: "tenant",
-                status: "active",
-                propertiesCount: tenant.properties.length,
-                totalValue: tenant.properties.reduce((sum, prop) => sum + prop.pricePerYear, 0),
                 lastContact: new Date(),
             })),
         ];

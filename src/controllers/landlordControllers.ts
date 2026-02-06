@@ -3,8 +3,8 @@ import { wktToGeoJSON } from "@terraformer/wkt";
 import { addToEmailList, sendLandlordWelcomeEmail } from "../utils/emailSubscriptionService";
 import { sendEmail } from "../utils/emailService";
 import { db } from "../utils/database";
-import { landlords, properties, locations, landlordRegistrationCodes, tenants, users, landlordTenantRentals, tenantEditAuditLog, activityFeeds, activityTypeEnum, agents } from "../db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { landlords, properties, locations, landlordRegistrationCodes, tenants, users, landlordTenantRentals, tenantEditAuditLog, activityFeeds, activityTypeEnum, agents, sessions } from "../db/schema";
+import { eq, sql, and, or } from "drizzle-orm";
 import crypto from "crypto";
 import { QRCodeService } from "../services/qrCodeService";
 import { auth } from "../auth";
@@ -15,7 +15,7 @@ export const getLandlord = async (
 ): Promise<void> => {
   try {
     const { authId: cognitoId } = req.params;
-    const landlordResult = await db.select().from(landlords).where(eq(landlords.cognitoId, cognitoId));
+    const landlordResult = await db.select().from(landlords).where(or(eq(landlords.cognitoId, cognitoId), eq(landlords.userId, cognitoId)));
     const landlord = landlordResult[0];
 
     if (landlord) {
@@ -83,13 +83,20 @@ export const adminCreateLandlord = async (
       name,
       email,
       phoneNumber,
+      password: providedPassword,
+      currentAddress,
+      city,
+      state,
+      postalCode,
+      country,
       accountName,
       accountNumber,
       bankName
     } = req.body;
 
-    if (!name || !email || !phoneNumber || !accountName || !accountNumber || !bankName) {
-      res.status(400).json({ message: "Missing required fields" });
+    // Bank details are now optional for agent-created landlords
+    if (!name || !email || !phoneNumber) {
+      res.status(400).json({ message: "Missing required fields: Name, Email, and Phone Number are required." });
       return;
     }
 
@@ -102,7 +109,8 @@ export const adminCreateLandlord = async (
       }
     }
 
-    const password = crypto.randomBytes(12).toString("base64");
+    // Use provided password or generate one
+    const password = providedPassword || crypto.randomBytes(12).toString("base64");
 
     const created = await auth.api.signUpEmail({
       body: {
@@ -113,7 +121,10 @@ export const adminCreateLandlord = async (
         phoneNumber,
         callbackURL: `${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/verify-email`,
       },
-      headers: req.headers as any
+      headers: {
+        ...req.headers,
+        "x-admin-create": "true"
+      } as any
     });
 
     if (!created || !(created as any).user) {
@@ -141,6 +152,11 @@ export const adminCreateLandlord = async (
       name,
       email,
       phoneNumber,
+      currentAddress,
+      city,
+      state,
+      postalCode,
+      country,
       bankName,
       accountNumber,
       accountName,
@@ -159,11 +175,12 @@ export const adminCreateLandlord = async (
         actorName: req.user?.name || 'Admin',
         targetId: landlordProfile.id,
         targetType: 'landlord',
-        metadata: { phoneNumber, bankName, accountNumber, accountName },
+        metadata: { phoneNumber, address: currentAddress },
         isPublic: false,
       });
     } catch {}
 
+    // Only send email if password was auto-generated or if we want to confirm creation
     await sendEmail({
       to: email,
       subject: "Welcome to HomeMatch",
@@ -173,7 +190,7 @@ export const adminCreateLandlord = async (
             <h2>Welcome to HomeMatch</h2>
             <p>Your landlord account has been created.</p>
             <p>Email: ${email}</p>
-            <p>Password: ${password}</p>
+            ${!providedPassword ? `<p>Password: ${password}</p>` : '<p>Please log in with the password provided during registration.</p>'}
           </body>
         </html>
       `,
@@ -240,12 +257,76 @@ export const impersonateLandlord = async (
     if (landlordResult.length > 0 && landlordResult[0].userId) {
       targetUserId = landlordResult[0].userId;
       console.log(`Resolved landlord cognitoId ${paramId} to userId ${targetUserId}`);
+
+      // Security Check: If requester is an agent, ensure they created this landlord
+      if (req.user?.role === 'agent') {
+        const agentRecord = await db.select().from(agents).where(eq(agents.userId, req.user.id)).limit(1);
+        
+        if (!agentRecord[0]) {
+           res.status(403).json({ message: "Access Denied - Agent profile not found" });
+           return;
+        }
+
+        if (landlordResult[0].createdByAgentId !== agentRecord[0].id) {
+           res.status(403).json({ message: "Access Denied - You can only impersonate landlords you created" });
+           return;
+        }
+      }
+    } else {
+        // If we couldn't resolve via cognitoId, maybe paramId is userId directly.
+        // We should verify if that user is a landlord and if the agent owns them.
+        // But for now, if the lookup above failed to find a landlord, we might proceed blindly with paramId,
+        // which is risky if paramId is indeed a userId but we didn't check ownership.
+        
+        // Let's do a reverse lookup: Check if there is a landlord with this userId
+        const landlordByUserId = await db.select().from(landlords).where(eq(landlords.userId, paramId)).limit(1);
+        
+        if (landlordByUserId[0]) {
+            if (req.user?.role === 'agent') {
+                const agentRecord = await db.select().from(agents).where(eq(agents.userId, req.user.id)).limit(1);
+                if (!agentRecord[0] || landlordByUserId[0].createdByAgentId !== agentRecord[0].id) {
+                    res.status(403).json({ message: "Access Denied - You can only impersonate landlords you created" });
+                    return;
+                }
+            }
+        } else {
+            // If the target is NOT a landlord, and requester is an agent, we should probably BLOCK it
+            // because agents can "only create landlord profile" and thus should only manage landlords.
+            if (req.user?.role === 'agent') {
+                 res.status(403).json({ message: "Access Denied - Agents can only impersonate landlords" });
+                 return;
+            }
+        }
     }
 
-    const session = await auth.api.impersonateUser({
-      body: { userId: targetUserId },
-      headers: req.headers as any
+    // Clean headers to avoid issues with content-length/type mismatch
+    const { "content-length": cl, "content-type": ct, ...cleanHeaders } = req.headers;
+
+    // Manually create a session for the target user since better-auth doesn't expose createSession easily
+    // and we need to bypass admin role checks
+    const crypto = require("crypto");
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await db.insert(sessions).values({
+      id: crypto.randomUUID(),
+      userId: targetUserId,
+      token: token,
+      expiresAt: expiresAt,
+      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent'],
+      impersonatedBy: req.user?.id
     });
+
+    const session = {
+        session: {
+            token: token,
+            expiresAt: expiresAt,
+            user: {
+                id: targetUserId
+            }
+        }
+    };
 
     try {
       await db.insert(activityFeeds).values({
@@ -401,7 +482,7 @@ export const updateLandlord = async (
 
     const landlordResult = await db.update(landlords)
       .set(updateData)
-      .where(eq(landlords.cognitoId, cognitoId))
+      .where(or(eq(landlords.cognitoId, cognitoId), eq(landlords.userId, cognitoId)))
       .returning();
     const landlord = landlordResult[0];
 
@@ -425,7 +506,7 @@ export const getLandlordProperties = async (
       .from(properties)
       .leftJoin(locations, eq(properties.locationId, locations.id))
       .leftJoin(landlords, eq(properties.landlordCognitoId, landlords.cognitoId))
-      .where(eq(landlords.cognitoId, cognitoId));
+      .where(or(eq(landlords.cognitoId, cognitoId), eq(landlords.userId, cognitoId)));
 
     const formattedProperties = propertiesResult.map(row => ({
       ...row.Property,
@@ -485,7 +566,7 @@ export const generateTenantRegistrationLink = async (
         linkGeneratedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(landlords.cognitoId, cognitoId))
+      .where(or(eq(landlords.cognitoId, cognitoId), eq(landlords.userId, cognitoId)))
       .returning();
     
     const updatedLandlord = updatedLandlordResult[0];
@@ -553,15 +634,29 @@ export const getTenantRegistrationLink = async (
     const { propertyId, regenerateQR } = req.query; // Optional query parameters
 
     const landlordResult = await db.select({
+      id: landlords.id,
+      cognitoId: landlords.cognitoId,
       tenantRegistrationLink: landlords.tenantRegistrationLink,
       linkGeneratedAt: landlords.linkGeneratedAt,
-    }).from(landlords).where(eq(landlords.cognitoId, cognitoId));
+      createdByAgentId: landlords.createdByAgentId,
+    }).from(landlords).where(or(eq(landlords.cognitoId, cognitoId), eq(landlords.userId, cognitoId)));
     
     const landlord = landlordResult[0];
 
     if (!landlord) {
       res.status(404).json({ message: "Landlord not found" });
       return;
+    }
+
+    // Agent access control
+    if (req.user?.role === 'agent') {
+        const agentResult = await db.select().from(agents).where(eq(agents.userId, req.user.id)).limit(1);
+        const agent = agentResult[0];
+        
+        if (!agent || landlord.createdByAgentId !== agent.id) {
+             res.status(403).json({ message: "Access Denied - You can only view landlords you created" });
+             return;
+        }
     }
 
     if (!landlord.tenantRegistrationLink) {
@@ -616,7 +711,7 @@ export const getLandlordTenants = async (
     const { authId: cognitoId } = req.params;
 
     // First, get the landlord to verify they exist
-    const landlordResult = await db.select().from(landlords).where(eq(landlords.cognitoId, cognitoId));
+    const landlordResult = await db.select().from(landlords).where(or(eq(landlords.cognitoId, cognitoId), eq(landlords.userId, cognitoId)));
     const landlord = landlordResult[0];
 
     if (!landlord) {

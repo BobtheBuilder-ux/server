@@ -128,7 +128,7 @@ app.use(
   betterAuthMiddleware(["tenant", "landlord", "agent", "admin"]),
   tenantRoutes
 );
-app.use("/landlords", betterAuthMiddleware(["landlord", "admin"]), landlordRoutes);
+app.use("/landlords", betterAuthMiddleware(["landlord", "admin", "agent"]), landlordRoutes);
 // Admin routes with exception for admin creation
 // Public admin routes (no authentication required)
 app.use("/admin", publicAdminRoutes);

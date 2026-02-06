@@ -69,9 +69,9 @@ const createLandlord = async (req, res) => {
 exports.createLandlord = createLandlord;
 const adminCreateLandlord = async (req, res) => {
     try {
-        const { name, email, phoneNumber, accountName, accountNumber, bankName } = req.body;
-        if (!name || !email || !phoneNumber || !accountName || !accountNumber || !bankName) {
-            res.status(400).json({ message: "Missing required fields" });
+        const { name, email, phoneNumber, password: providedPassword, currentAddress, city, state, postalCode, country, accountName, accountNumber, bankName } = req.body;
+        if (!name || !email || !phoneNumber) {
+            res.status(400).json({ message: "Missing required fields: Name, Email, and Phone Number are required." });
             return;
         }
         const existingUser = await database_1.db.select().from(schema_1.users).where((0, drizzle_orm_1.eq)(schema_1.users.email, email)).limit(1);
@@ -82,7 +82,7 @@ const adminCreateLandlord = async (req, res) => {
                 return;
             }
         }
-        const password = crypto_1.default.randomBytes(12).toString("base64");
+        const password = providedPassword || crypto_1.default.randomBytes(12).toString("base64");
         const created = await auth_1.auth.api.signUpEmail({
             body: {
                 email,
@@ -92,7 +92,10 @@ const adminCreateLandlord = async (req, res) => {
                 phoneNumber,
                 callbackURL: `${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/verify-email`,
             },
-            headers: req.headers
+            headers: {
+                ...req.headers,
+                "x-admin-create": "true"
+            }
         });
         if (!created || !created.user) {
             res.status(500).json({ message: "Failed to create user" });
@@ -115,6 +118,11 @@ const adminCreateLandlord = async (req, res) => {
             name,
             email,
             phoneNumber,
+            currentAddress,
+            city,
+            state,
+            postalCode,
+            country,
             bankName,
             accountNumber,
             accountName,
@@ -131,7 +139,7 @@ const adminCreateLandlord = async (req, res) => {
                 actorName: req.user?.name || 'Admin',
                 targetId: landlordProfile.id,
                 targetType: 'landlord',
-                metadata: { phoneNumber, bankName, accountNumber, accountName },
+                metadata: { phoneNumber, address: currentAddress },
                 isPublic: false,
             });
         }
@@ -145,7 +153,7 @@ const adminCreateLandlord = async (req, res) => {
             <h2>Welcome to HomeMatch</h2>
             <p>Your landlord account has been created.</p>
             <p>Email: ${email}</p>
-            <p>Password: ${password}</p>
+            ${!providedPassword ? `<p>Password: ${password}</p>` : '<p>Please log in with the password provided during registration.</p>'}
           </body>
         </html>
       `,
@@ -201,11 +209,58 @@ const impersonateLandlord = async (req, res) => {
         if (landlordResult.length > 0 && landlordResult[0].userId) {
             targetUserId = landlordResult[0].userId;
             console.log(`Resolved landlord cognitoId ${paramId} to userId ${targetUserId}`);
+            if (req.user?.role === 'agent') {
+                const agentRecord = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, req.user.id)).limit(1);
+                if (!agentRecord[0]) {
+                    res.status(403).json({ message: "Access Denied - Agent profile not found" });
+                    return;
+                }
+                if (landlordResult[0].createdByAgentId !== agentRecord[0].id) {
+                    res.status(403).json({ message: "Access Denied - You can only impersonate landlords you created" });
+                    return;
+                }
+            }
         }
-        const session = await auth_1.auth.api.impersonateUser({
-            body: { userId: targetUserId },
-            headers: req.headers
+        else {
+            const landlordByUserId = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.userId, paramId)).limit(1);
+            if (landlordByUserId[0]) {
+                if (req.user?.role === 'agent') {
+                    const agentRecord = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, req.user.id)).limit(1);
+                    if (!agentRecord[0] || landlordByUserId[0].createdByAgentId !== agentRecord[0].id) {
+                        res.status(403).json({ message: "Access Denied - You can only impersonate landlords you created" });
+                        return;
+                    }
+                }
+            }
+            else {
+                if (req.user?.role === 'agent') {
+                    res.status(403).json({ message: "Access Denied - Agents can only impersonate landlords" });
+                    return;
+                }
+            }
+        }
+        const { "content-length": cl, "content-type": ct, ...cleanHeaders } = req.headers;
+        const crypto = require("crypto");
+        const token = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await database_1.db.insert(schema_1.sessions).values({
+            id: crypto.randomUUID(),
+            userId: targetUserId,
+            token: token,
+            expiresAt: expiresAt,
+            ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            impersonatedBy: req.user?.id
         });
+        const session = {
+            session: {
+                token: token,
+                expiresAt: expiresAt,
+                user: {
+                    id: targetUserId
+                }
+            }
+        };
         try {
             await database_1.db.insert(schema_1.activityFeeds).values({
                 type: 'AgentAssigned',
@@ -451,13 +506,24 @@ const getTenantRegistrationLink = async (req, res) => {
         const { authId: cognitoId } = req.params;
         const { propertyId, regenerateQR } = req.query;
         const landlordResult = await database_1.db.select({
+            id: schema_1.landlords.id,
+            cognitoId: schema_1.landlords.cognitoId,
             tenantRegistrationLink: schema_1.landlords.tenantRegistrationLink,
             linkGeneratedAt: schema_1.landlords.linkGeneratedAt,
+            createdByAgentId: schema_1.landlords.createdByAgentId,
         }).from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId));
         const landlord = landlordResult[0];
         if (!landlord) {
             res.status(404).json({ message: "Landlord not found" });
             return;
+        }
+        if (req.user?.role === 'agent') {
+            const agentResult = await database_1.db.select().from(schema_1.agents).where((0, drizzle_orm_1.eq)(schema_1.agents.userId, req.user.id)).limit(1);
+            const agent = agentResult[0];
+            if (!agent || landlord.createdByAgentId !== agent.id) {
+                res.status(403).json({ message: "Access Denied - You can only view landlords you created" });
+                return;
+            }
         }
         if (!landlord.tenantRegistrationLink) {
             res.status(404).json({ message: "No tenant registration link found for this landlord" });

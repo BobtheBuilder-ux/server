@@ -100,7 +100,13 @@ class Logger {
     this.writeLog(entry);
   }
 
-  public logUserDeletion(userId: string, email: string, reason: 'verification_timeout' | 'page_refresh', success: boolean, error?: any): void {
+  public logUserDeletion(
+    userId: string,
+    email: string,
+    reason: 'verification_timeout' | 'page_refresh' | 'admin_delete',
+    success: boolean,
+    error?: any
+  ): void {
     if (success) {
       this.info(
         `User account deleted successfully - Reason: ${reason}`,

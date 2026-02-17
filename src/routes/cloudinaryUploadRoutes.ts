@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import os from 'os';
 import {
   uploadSingleFile,
   uploadMultipleFiles,
@@ -14,8 +15,15 @@ import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// Configure multer for memory storage
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, os.tmpdir());
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `${uniqueSuffix}-${file.originalname}`);
+  },
+});
 
 const upload = multer({
   storage,
@@ -41,7 +49,7 @@ const upload = multer({
 // Single file upload to Cloudinary
 router.post(
   '/single',
-  authMiddleware(['landlord', 'tenant', 'admin']),
+  authMiddleware(['landlord', 'tenant', 'admin', 'blogger']),
   upload.single('file'),
   uploadSingleFile
 );
@@ -49,7 +57,7 @@ router.post(
 // Multiple files upload to Cloudinary
 router.post(
   '/multiple',
-  authMiddleware(['landlord', 'tenant', 'admin']),
+  authMiddleware(['landlord', 'tenant', 'admin', 'blogger']),
   upload.array('files', 20),
   uploadMultipleFiles
 );

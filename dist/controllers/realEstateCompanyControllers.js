@@ -5,6 +5,7 @@ const database_1 = require("../utils/database");
 const schema_1 = require("../db/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const cloudinaryService_1 = require("../utils/cloudinaryService");
+const auth_1 = require("../auth");
 const registerCompany = async (req, res) => {
     try {
         const { companyName, licenseNumber, address, phoneNumber, email, website, description } = req.body;
@@ -164,15 +165,68 @@ const updateCompanyStatus = async (req, res) => {
         if (!['Approved', 'Rejected'].includes(status)) {
             return res.status(400).json({ message: "Invalid status" });
         }
+        const companyId = parseInt(id);
+        if (Number.isNaN(companyId)) {
+            return res.status(400).json({ message: "Invalid company id" });
+        }
+        const [existingCompany] = await database_1.db
+            .select()
+            .from(schema_1.realEstateCompanies)
+            .where((0, drizzle_orm_1.eq)(schema_1.realEstateCompanies.id, companyId));
+        if (!existingCompany) {
+            return res.status(404).json({ message: "Company not found" });
+        }
         const [updatedCompany] = await database_1.db.update(schema_1.realEstateCompanies)
             .set({
             verificationStatus: status,
-            isVerified: status === 'Approved'
+            isVerified: status === 'Approved',
+            updatedAt: new Date(),
         })
-            .where((0, drizzle_orm_1.eq)(schema_1.realEstateCompanies.id, parseInt(id)))
+            .where((0, drizzle_orm_1.eq)(schema_1.realEstateCompanies.id, companyId))
             .returning();
         if (!updatedCompany)
             return res.status(404).json({ message: "Company not found" });
+        if (status === 'Approved') {
+            try {
+                const api = auth_1.auth.api;
+                const payload = {
+                    body: {
+                        email: updatedCompany.email,
+                        redirectTo: `${process.env.CLIENT_URL}/auth/reset-password`,
+                    },
+                    headers: req.headers,
+                };
+                if (typeof api?.forgetPassword === "function") {
+                    await api.forgetPassword(payload);
+                }
+                else if (typeof api?.forgotPassword === "function") {
+                    await api.forgotPassword(payload);
+                }
+                else if (typeof api?.resetPassword === "function") {
+                    await api.resetPassword(payload);
+                }
+            }
+            catch (error) {
+                console.error("Error sending password setup email for real estate company:", error);
+            }
+        }
+        try {
+            await database_1.db.insert(schema_1.adminAuditLogs).values({
+                adminUserId: req.user?.id || "system",
+                action: "UPDATE_REAL_ESTATE_COMPANY_STATUS",
+                targetUserId: existingCompany.userId,
+                details: {
+                    companyId: existingCompany.id,
+                    previousStatus: existingCompany.verificationStatus,
+                    newStatus: status,
+                    passwordEmailSent: status === "Approved",
+                },
+                ipAddress: req.ip || req.socket.remoteAddress,
+            });
+        }
+        catch (auditError) {
+            console.error("Failed to create audit log for company status update:", auditError);
+        }
         res.json(updatedCompany);
     }
     catch (error) {

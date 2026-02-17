@@ -3,10 +3,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const tslib_1 = require("tslib");
 const express_1 = require("express");
 const multer_1 = tslib_1.__importDefault(require("multer"));
+const os_1 = tslib_1.__importDefault(require("os"));
 const cloudinaryUploadControllers_1 = require("../controllers/cloudinaryUploadControllers");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = (0, express_1.Router)();
-const storage = multer_1.default.memoryStorage();
+const storage = multer_1.default.diskStorage({
+    destination: (_req, _file, cb) => {
+        cb(null, os_1.default.tmpdir());
+    },
+    filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `${uniqueSuffix}-${file.originalname}`);
+    },
+});
 const upload = (0, multer_1.default)({
     storage,
     limits: { fileSize: 10 * 1024 * 1024 },
@@ -28,8 +37,8 @@ const upload = (0, multer_1.default)({
         }
     },
 });
-router.post('/single', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin']), upload.single('file'), cloudinaryUploadControllers_1.uploadSingleFile);
-router.post('/multiple', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin']), upload.array('files', 20), cloudinaryUploadControllers_1.uploadMultipleFiles);
+router.post('/single', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin', 'blogger']), upload.single('file'), cloudinaryUploadControllers_1.uploadSingleFile);
+router.post('/multiple', (0, authMiddleware_1.authMiddleware)(['landlord', 'tenant', 'admin', 'blogger']), upload.array('files', 20), cloudinaryUploadControllers_1.uploadMultipleFiles);
 router.post('/application-documents', (0, authMiddleware_1.authMiddleware)(['tenant']), upload.fields([
     { name: 'idDocument', maxCount: 1 },
     { name: 'incomeProof', maxCount: 1 },

@@ -331,20 +331,64 @@ export const deleteUser = async (
   try {
     const { userId } = req.params;
 
-    // Check if user is a tenant or landlord and delete accordingly
-    const tenant = await db.select().from(tenants).where(eq(tenants.cognitoId, userId)).limit(1);
-    const landlord = await db.select().from(landlords).where(eq(landlords.cognitoId, userId)).limit(1);
+    const byId = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    let targetUser = byId[0];
 
-    if (tenant.length > 0) {
-      await db.delete(tenants).where(eq(tenants.cognitoId, userId));
-    } else if (landlord.length > 0) {
-      await db.delete(landlords).where(eq(landlords.cognitoId, userId));
-    } else {
-      res.status(404).json({ message: "User not found" });
+    if (!targetUser) {
+      const byLegacyId = await db
+        .select()
+        .from(users)
+        .where(eq(users.legacyCognitoId, userId))
+        .limit(1);
+      targetUser = byLegacyId[0];
+    }
+
+    if (targetUser) {
+      const cleanupModule = await import("../services/userCleanupService.js");
+      await cleanupModule.userCleanupService.deleteUserAndAssociatedData(
+        targetUser.id,
+        targetUser.email,
+        "admin_delete"
+      );
+      res.json({ message: "User deleted successfully" });
       return;
     }
 
-    res.json({ message: "User deleted successfully" });
+    const tenant = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.cognitoId, userId))
+      .limit(1);
+    const landlord = await db
+      .select()
+      .from(landlords)
+      .where(eq(landlords.cognitoId, userId))
+      .limit(1);
+    const agent = await db
+      .select()
+      .from(agents)
+      .where(eq(agents.cognitoId, userId))
+      .limit(1);
+
+    if (tenant.length > 0) {
+      await db.delete(tenants).where(eq(tenants.cognitoId, userId));
+      res.json({ message: "User deleted successfully" });
+      return;
+    }
+
+    if (landlord.length > 0) {
+      await db.delete(landlords).where(eq(landlords.cognitoId, userId));
+      res.json({ message: "User deleted successfully" });
+      return;
+    }
+
+    if (agent.length > 0) {
+      await db.delete(agents).where(eq(agents.cognitoId, userId));
+      res.json({ message: "User deleted successfully" });
+      return;
+    }
+
+    res.status(404).json({ message: "User not found" });
   } catch (error: any) {
     res.status(500).json({ message: `Error deleting user: ${error.message}` });
   }

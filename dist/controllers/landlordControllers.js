@@ -14,7 +14,7 @@ const auth_1 = require("../auth");
 const getLandlord = async (req, res) => {
     try {
         const { authId: cognitoId } = req.params;
-        const landlordResult = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId));
+        const landlordResult = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.landlords.userId, cognitoId)));
         const landlord = landlordResult[0];
         if (landlord) {
             res.json(landlord);
@@ -393,7 +393,7 @@ const updateLandlord = async (req, res) => {
         updateData.updatedAt = new Date();
         const landlordResult = await database_1.db.update(schema_1.landlords)
             .set(updateData)
-            .where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId))
+            .where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.landlords.userId, cognitoId)))
             .returning();
         const landlord = landlordResult[0];
         res.json(landlord);
@@ -412,7 +412,7 @@ const getLandlordProperties = async (req, res) => {
             .from(schema_1.properties)
             .leftJoin(schema_1.locations, (0, drizzle_orm_1.eq)(schema_1.properties.locationId, schema_1.locations.id))
             .leftJoin(schema_1.landlords, (0, drizzle_orm_1.eq)(schema_1.properties.landlordCognitoId, schema_1.landlords.cognitoId))
-            .where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId));
+            .where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.landlords.userId, cognitoId)));
         const formattedProperties = propertiesResult.map(row => ({
             ...row.Property,
             location: row.Location
@@ -457,7 +457,7 @@ const generateTenantRegistrationLink = async (req, res) => {
             linkGeneratedAt: new Date(),
             updatedAt: new Date(),
         })
-            .where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId))
+            .where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.landlords.userId, cognitoId)))
             .returning();
         const updatedLandlord = updatedLandlordResult[0];
         if (!updatedLandlord) {
@@ -511,7 +511,7 @@ const getTenantRegistrationLink = async (req, res) => {
             tenantRegistrationLink: schema_1.landlords.tenantRegistrationLink,
             linkGeneratedAt: schema_1.landlords.linkGeneratedAt,
             createdByAgentId: schema_1.landlords.createdByAgentId,
-        }).from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId));
+        }).from(schema_1.landlords).where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.landlords.userId, cognitoId)));
         const landlord = landlordResult[0];
         if (!landlord) {
             res.status(404).json({ message: "Landlord not found" });
@@ -560,7 +560,7 @@ exports.getTenantRegistrationLink = getTenantRegistrationLink;
 const getLandlordTenants = async (req, res) => {
     try {
         const { authId: cognitoId } = req.params;
-        const landlordResult = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId));
+        const landlordResult = await database_1.db.select().from(schema_1.landlords).where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.landlords.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.landlords.userId, cognitoId)));
         const landlord = landlordResult[0];
         if (!landlord) {
             res.status(404).json({ message: "Landlord not found" });

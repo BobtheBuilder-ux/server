@@ -100,6 +100,158 @@ class UserCleanupService {
         const startTime = Date.now();
         try {
             await database_1.db.transaction(async (tx) => {
+                const tenantProfiles = await tx.select().from(database_1.tenants).where((0, drizzle_orm_1.eq)(database_1.tenants.userId, userId));
+                const landlordProfiles = await tx.select().from(database_1.landlords).where((0, drizzle_orm_1.eq)(database_1.landlords.userId, userId));
+                const agentProfiles = await tx.select().from(database_1.agents).where((0, drizzle_orm_1.eq)(database_1.agents.userId, userId));
+                const adminProfiles = await tx.select().from(database_1.admins).where((0, drizzle_orm_1.eq)(database_1.admins.userId, userId));
+                const bloggerProfiles = await tx.select().from(database_1.bloggers).where((0, drizzle_orm_1.eq)(database_1.bloggers.userId, userId));
+                const saleUserProfiles = await tx.select().from(database_1.saleUsers).where((0, drizzle_orm_1.eq)(database_1.saleUsers.userId, userId));
+                const realEstateCompanyProfiles = await tx
+                    .select()
+                    .from(database_1.realEstateCompanies)
+                    .where((0, drizzle_orm_1.eq)(database_1.realEstateCompanies.userId, userId));
+                const tenantIds = tenantProfiles.map((t) => t.id);
+                const landlordIds = landlordProfiles.map((l) => l.id);
+                const agentIds = agentProfiles.map((a) => a.id);
+                const tenantCognitoIds = tenantProfiles.map((t) => t.cognitoId);
+                const landlordCognitoIds = landlordProfiles.map((l) => l.cognitoId);
+                let propertyIds = [];
+                if (landlordCognitoIds.length > 0) {
+                    const propertyRows = await tx
+                        .select({ id: database_1.properties.id })
+                        .from(database_1.properties)
+                        .where((0, drizzle_orm_1.inArray)(database_1.properties.landlordCognitoId, landlordCognitoIds));
+                    propertyIds = propertyRows.map((p) => p.id);
+                }
+                let leaseIds = [];
+                let applicationIds = [];
+                if (tenantCognitoIds.length > 0) {
+                    const leaseRows = await tx
+                        .select({ id: database_1.leases.id })
+                        .from(database_1.leases)
+                        .where((0, drizzle_orm_1.inArray)(database_1.leases.tenantCognitoId, tenantCognitoIds));
+                    leaseIds = leaseRows.map((l) => l.id);
+                    const applicationRows = await tx
+                        .select({ id: database_1.applications.id })
+                        .from(database_1.applications)
+                        .where((0, drizzle_orm_1.inArray)(database_1.applications.tenantCognitoId, tenantCognitoIds));
+                    applicationIds = applicationRows.map((a) => a.id);
+                }
+                if (propertyIds.length > 0) {
+                    const leaseRowsByProperty = await tx
+                        .select({ id: database_1.leases.id })
+                        .from(database_1.leases)
+                        .where((0, drizzle_orm_1.inArray)(database_1.leases.propertyId, propertyIds));
+                    const leasesFromProperties = leaseRowsByProperty.map((l) => l.id);
+                    leaseIds = [...new Set([...leaseIds, ...leasesFromProperties])];
+                    const applicationRowsByProperty = await tx
+                        .select({ id: database_1.applications.id })
+                        .from(database_1.applications)
+                        .where((0, drizzle_orm_1.inArray)(database_1.applications.propertyId, propertyIds));
+                    const applicationsFromProperties = applicationRowsByProperty.map((a) => a.id);
+                    applicationIds = [...new Set([...applicationIds, ...applicationsFromProperties])];
+                }
+                if (leaseIds.length > 0) {
+                    await tx.delete(database_1.payments).where((0, drizzle_orm_1.inArray)(database_1.payments.leaseId, leaseIds));
+                }
+                if (applicationIds.length > 0) {
+                    await tx.delete(database_1.payments).where((0, drizzle_orm_1.inArray)(database_1.payments.applicationId, applicationIds));
+                }
+                if (leaseIds.length > 0) {
+                    await tx.delete(database_1.leases).where((0, drizzle_orm_1.inArray)(database_1.leases.id, leaseIds));
+                }
+                if (applicationIds.length > 0) {
+                    await tx.delete(database_1.applications).where((0, drizzle_orm_1.inArray)(database_1.applications.id, applicationIds));
+                }
+                if (tenantIds.length > 0) {
+                    await tx.delete(database_1.tenantFavorites).where((0, drizzle_orm_1.inArray)(database_1.tenantFavorites.tenantId, tenantIds));
+                    await tx.delete(database_1.tenantProperties).where((0, drizzle_orm_1.inArray)(database_1.tenantProperties.tenantId, tenantIds));
+                    await tx
+                        .delete(database_1.landlordTenantRentals)
+                        .where((0, drizzle_orm_1.inArray)(database_1.landlordTenantRentals.tenantId, tenantIds));
+                    await tx.delete(database_1.tenantEditAuditLog).where((0, drizzle_orm_1.inArray)(database_1.tenantEditAuditLog.tenantId, tenantIds));
+                    await tx.delete(database_1.renewalRequests).where((0, drizzle_orm_1.inArray)(database_1.renewalRequests.tenantId, tenantIds));
+                }
+                if (landlordIds.length > 0) {
+                    await tx
+                        .delete(database_1.landlordTenantRentals)
+                        .where((0, drizzle_orm_1.inArray)(database_1.landlordTenantRentals.landlordId, landlordIds));
+                    await tx
+                        .delete(database_1.tenantEditAuditLog)
+                        .where((0, drizzle_orm_1.inArray)(database_1.tenantEditAuditLog.landlordId, landlordIds));
+                    await tx.delete(database_1.renewalRequests).where((0, drizzle_orm_1.inArray)(database_1.renewalRequests.landlordId, landlordIds));
+                }
+                if (propertyIds.length > 0) {
+                    await tx.delete(database_1.tenantProperties).where((0, drizzle_orm_1.inArray)(database_1.tenantProperties.propertyId, propertyIds));
+                    await tx.delete(database_1.agentProperties).where((0, drizzle_orm_1.inArray)(database_1.agentProperties.propertyId, propertyIds));
+                    await tx.delete(database_1.inspections).where((0, drizzle_orm_1.inArray)(database_1.inspections.propertyId, propertyIds));
+                    await tx.delete(database_1.renewalRequests).where((0, drizzle_orm_1.inArray)(database_1.renewalRequests.propertyId, propertyIds));
+                    await tx.delete(database_1.properties).where((0, drizzle_orm_1.inArray)(database_1.properties.id, propertyIds));
+                }
+                if (tenantCognitoIds.length > 0) {
+                    await tx.delete(database_1.inspections).where((0, drizzle_orm_1.inArray)(database_1.inspections.tenantCognitoId, tenantCognitoIds));
+                    await tx
+                        .delete(database_1.inspectionLimits)
+                        .where((0, drizzle_orm_1.inArray)(database_1.inspectionLimits.tenantCognitoId, tenantCognitoIds));
+                }
+                if (landlordCognitoIds.length > 0) {
+                    await tx
+                        .delete(database_1.withdrawals)
+                        .where((0, drizzle_orm_1.inArray)(database_1.withdrawals.landlordCognitoId, landlordCognitoIds));
+                }
+                if (agentIds.length > 0) {
+                    await tx.delete(database_1.tasks).where((0, drizzle_orm_1.inArray)(database_1.tasks.agentId, agentIds));
+                    await tx.delete(database_1.agentProperties).where((0, drizzle_orm_1.inArray)(database_1.agentProperties.agentId, agentIds));
+                    await tx.delete(database_1.inspections).where((0, drizzle_orm_1.inArray)(database_1.inspections.agentId, agentIds));
+                }
+                const bloggerIds = bloggerProfiles.map((b) => b.id);
+                if (bloggerIds.length > 0) {
+                    const blogPostRows = await tx
+                        .select({ id: database_1.blogPosts.id })
+                        .from(database_1.blogPosts)
+                        .where((0, drizzle_orm_1.eq)(database_1.blogPosts.authorUserId, userId));
+                    const blogPostIds = blogPostRows.map((p) => p.id);
+                    if (blogPostIds.length > 0) {
+                        await tx.delete(database_1.blogPostTags).where((0, drizzle_orm_1.inArray)(database_1.blogPostTags.postId, blogPostIds));
+                        await tx.delete(database_1.blogPosts).where((0, drizzle_orm_1.inArray)(database_1.blogPosts.id, blogPostIds));
+                    }
+                    await tx.delete(database_1.bloggers).where((0, drizzle_orm_1.inArray)(database_1.bloggers.id, bloggerIds));
+                }
+                if (saleUserProfiles.length > 0 || realEstateCompanyProfiles.length > 0) {
+                    const listingRows = await tx
+                        .select({ id: database_1.saleListings.id })
+                        .from(database_1.saleListings)
+                        .where((0, drizzle_orm_1.eq)(database_1.saleListings.createdByUserId, userId));
+                    const listingIds = listingRows.map((l) => l.id);
+                    if (listingIds.length > 0) {
+                        await tx
+                            .delete(database_1.saleListingDocuments)
+                            .where((0, drizzle_orm_1.inArray)(database_1.saleListingDocuments.listingId, listingIds));
+                        await tx.delete(database_1.saleSellers).where((0, drizzle_orm_1.inArray)(database_1.saleSellers.listingId, listingIds));
+                        await tx
+                            .delete(database_1.saleVerifications)
+                            .where((0, drizzle_orm_1.inArray)(database_1.saleVerifications.listingId, listingIds));
+                        await tx
+                            .delete(database_1.saleListingAuditLog)
+                            .where((0, drizzle_orm_1.inArray)(database_1.saleListingAuditLog.listingId, listingIds));
+                        await tx.delete(database_1.saleListings).where((0, drizzle_orm_1.inArray)(database_1.saleListings.id, listingIds));
+                    }
+                    const saleUserIds = saleUserProfiles.map((s) => s.id);
+                    if (saleUserIds.length > 0) {
+                        await tx.delete(database_1.saleUsers).where((0, drizzle_orm_1.inArray)(database_1.saleUsers.id, saleUserIds));
+                    }
+                    const realEstateCompanyIds = realEstateCompanyProfiles.map((r) => r.id);
+                    if (realEstateCompanyIds.length > 0) {
+                        await tx
+                            .delete(database_1.realEstateCompanies)
+                            .where((0, drizzle_orm_1.inArray)(database_1.realEstateCompanies.id, realEstateCompanyIds));
+                    }
+                }
+                if (email) {
+                    await tx.delete(database_1.emailSubscriptions).where((0, drizzle_orm_1.eq)(database_1.emailSubscriptions.email, email));
+                    await tx.delete(database_1.tenantSurveys).where((0, drizzle_orm_1.eq)(database_1.tenantSurveys.email, email));
+                    await tx.delete(database_1.landlordSurveys).where((0, drizzle_orm_1.eq)(database_1.landlordSurveys.email, email));
+                }
                 const deletedTenants = await tx.delete(database_1.tenants)
                     .where((0, drizzle_orm_1.eq)(database_1.tenants.userId, userId));
                 const deletedLandlords = await tx.delete(database_1.landlords)

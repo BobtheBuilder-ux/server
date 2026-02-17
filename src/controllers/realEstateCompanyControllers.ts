@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { db } from "../utils/database";
-import { realEstateCompanies } from "../db/schema";
+import { adminAuditLogs, realEstateCompanies } from "../db/schema";
 import { eq, like, and } from "drizzle-orm";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryService";
+import { auth } from "../auth";
 
 export const registerCompany = async (req: Request, res: Response) => {
   try {
@@ -193,15 +194,71 @@ export const updateCompanyStatus = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
+    const companyId = parseInt(id);
+
+    if (Number.isNaN(companyId)) {
+      return res.status(400).json({ message: "Invalid company id" });
+    }
+
+    const [existingCompany] = await db
+      .select()
+      .from(realEstateCompanies)
+      .where(eq(realEstateCompanies.id, companyId));
+
+    if (!existingCompany) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
     const [updatedCompany] = await db.update(realEstateCompanies)
       .set({ 
         verificationStatus: status,
-        isVerified: status === 'Approved'
+        isVerified: status === 'Approved',
+        updatedAt: new Date(),
       })
-      .where(eq(realEstateCompanies.id, parseInt(id)))
+      .where(eq(realEstateCompanies.id, companyId))
       .returning();
 
     if (!updatedCompany) return res.status(404).json({ message: "Company not found" });
+
+    if (status === 'Approved') {
+      try {
+        const api: any = (auth as any).api;
+        const payload = {
+          body: {
+            email: updatedCompany.email,
+            redirectTo: `${process.env.CLIENT_URL}/auth/reset-password`,
+          },
+          headers: req.headers as any,
+        };
+
+        if (typeof api?.forgetPassword === "function") {
+          await api.forgetPassword(payload);
+        } else if (typeof api?.forgotPassword === "function") {
+          await api.forgotPassword(payload);
+        } else if (typeof api?.resetPassword === "function") {
+          await api.resetPassword(payload);
+        }
+      } catch (error) {
+        console.error("Error sending password setup email for real estate company:", error);
+      }
+    }
+
+    try {
+      await db.insert(adminAuditLogs).values({
+        adminUserId: req.user?.id || "system",
+        action: "UPDATE_REAL_ESTATE_COMPANY_STATUS",
+        targetUserId: existingCompany.userId,
+        details: {
+          companyId: existingCompany.id,
+          previousStatus: existingCompany.verificationStatus,
+          newStatus: status,
+          passwordEmailSent: status === "Approved",
+        },
+        ipAddress: req.ip || (req.socket.remoteAddress as string),
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log for company status update:", auditError);
+    }
 
     res.json(updatedCompany);
   } catch (error: any) {

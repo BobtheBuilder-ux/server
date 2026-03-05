@@ -3,6 +3,7 @@ import { auth } from "../auth";
 import { eq } from "drizzle-orm";
 import { db } from "../utils/database";
 import { landlordRegistrationCodes } from "../db/schema";
+import { betterAuthMiddleware } from "../middleware/betterAuthMiddleware";
 
 const router = Router();
 
@@ -329,17 +330,19 @@ router.post("/signup", async (req, res) => {
 });
 
 // Get current user with role information
-router.get("/session", async (req, res) => {
+router.get("/session", betterAuthMiddleware(), async (req, res) => {
   try {
-    const session = await auth.api.getSession({
-      headers: req.headers as any,
-    });
+    const userType = req.user?.role || "tenant";
     
-    if (session) {
-      res.json(session);
-    } else {
-      res.status(401).json({ error: "Not authenticated" });
-    }
+    // Log session information with userType and token to console
+    console.log(`[SESSION_FETCH] Email: ${req.user?.email}, UserType: ${userType}, ID: ${req.user?.id}, Token: ${req.session?.token?.substring(0, 10)}...`);
+    
+    res.json({
+      user: req.user,
+      session: req.session,
+      userType: userType,
+      token: req.session?.token
+    });
   } catch (error) {
     console.error("Session error:", error);
     res.status(500).json({ error: "Internal server error" });

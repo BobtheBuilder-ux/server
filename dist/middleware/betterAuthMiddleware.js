@@ -50,6 +50,7 @@ const betterAuthMiddleware = (allowedRoles) => {
             req.session = {
                 id: session.session.id,
                 userId: session.user.id,
+                token: session.session.token,
                 expires: new Date(session.session.expiresAt),
             };
             next();

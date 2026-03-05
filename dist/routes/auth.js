@@ -5,6 +5,7 @@ const auth_1 = require("../auth");
 const drizzle_orm_1 = require("drizzle-orm");
 const database_1 = require("../utils/database");
 const schema_1 = require("../db/schema");
+const betterAuthMiddleware_1 = require("../middleware/betterAuthMiddleware");
 const router = (0, express_1.Router)();
 const validateRole = (role) => {
     const allowedRoles = ["tenant", "landlord", "agent", "sale", "admin"];
@@ -274,17 +275,16 @@ router.post("/signup", async (req, res) => {
         }
     }
 });
-router.get("/session", async (req, res) => {
+router.get("/session", (0, betterAuthMiddleware_1.betterAuthMiddleware)(), async (req, res) => {
     try {
-        const session = await auth_1.auth.api.getSession({
-            headers: req.headers,
+        const userType = req.user?.role || "tenant";
+        console.log(`[SESSION_FETCH] Email: ${req.user?.email}, UserType: ${userType}, ID: ${req.user?.id}, Token: ${req.session?.token?.substring(0, 10)}...`);
+        res.json({
+            user: req.user,
+            session: req.session,
+            userType: userType,
+            token: req.session?.token
         });
-        if (session) {
-            res.json(session);
-        }
-        else {
-            res.status(401).json({ error: "Not authenticated" });
-        }
     }
     catch (error) {
         console.error("Session error:", error);

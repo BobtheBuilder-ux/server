@@ -17,6 +17,7 @@ declare global {
       session?: {
         id: string;
         userId: string;
+        token: string;
         expires: Date;
       };
     }
@@ -81,6 +82,7 @@ export const betterAuthMiddleware = (allowedRoles?: string[]) => {
       req.session = {
         id: session.session.id,
         userId: session.user.id,
+        token: session.session.token,
         expires: new Date(session.session.expiresAt),
       };
 

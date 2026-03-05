@@ -2,7 +2,7 @@ import { Router } from "express";
 import { auth } from "../auth";
 import { eq } from "drizzle-orm";
 import { db } from "../utils/database";
-import { landlordRegistrationCodes } from "../db/schema";
+import { landlordRegistrationCodes, users, accounts } from "../db/schema";
 import { betterAuthMiddleware } from "../middleware/betterAuthMiddleware";
 
 const router = Router();
@@ -258,6 +258,54 @@ router.post("/api/auth/forgot-password", async (req, res) => {
   } catch (error) {
     console.error("Password reset error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Sign-in endpoint that provides access token
+router.post("/signin", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+    
+    const result = await auth.api.signInEmail({
+       body: {
+         email,
+         password,
+       },
+       headers: req.headers as any,
+     });
+     
+     if (result && result.user) {
+        // Get the user with role from database to be sure
+        const [dbUser] = await db.select().from(users).where(eq(users.id, result.user.id)).limit(1);
+        const userRole = dbUser?.role || "tenant";
+
+        // Get the account to find any stored access token if relevant
+        const [userAccount] = await db.select().from(accounts).where(eq(accounts.userId, result.user.id)).limit(1);
+        const dbAccessToken = userAccount?.accessToken || null;
+ 
+        // Log sign-in to console
+        console.log(`[SIGNIN_SUCCESS] Email: ${result.user.email}, Role: ${userRole}, ID: ${result.user.id}`);
+        
+        res.json({
+          message: "Signed in successfully",
+          user: {
+            ...result.user,
+            role: userRole
+          },
+          accessToken: dbAccessToken || result.token, // Return stored accessToken from Account table if available, else the session token
+          token: result.token,
+          userType: userRole
+        });
+      } else {
+       res.status(401).json({ error: "Invalid email or password" });
+     }
+  } catch (error: any) {
+    console.error("Signin error:", error);
+    res.status(401).json({ error: error.message || "Authentication failed" });
   }
 });
 

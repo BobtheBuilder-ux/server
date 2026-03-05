@@ -220,6 +220,45 @@ router.post("/api/auth/forgot-password", async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 });
+router.post("/signin", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: "Email and password are required" });
+        }
+        const result = await auth_1.auth.api.signInEmail({
+            body: {
+                email,
+                password,
+            },
+            headers: req.headers,
+        });
+        if (result && result.user) {
+            const [dbUser] = await database_1.db.select().from(schema_1.users).where((0, drizzle_orm_1.eq)(schema_1.users.id, result.user.id)).limit(1);
+            const userRole = dbUser?.role || "tenant";
+            const [userAccount] = await database_1.db.select().from(schema_1.accounts).where((0, drizzle_orm_1.eq)(schema_1.accounts.userId, result.user.id)).limit(1);
+            const dbAccessToken = userAccount?.accessToken || null;
+            console.log(`[SIGNIN_SUCCESS] Email: ${result.user.email}, Role: ${userRole}, ID: ${result.user.id}`);
+            res.json({
+                message: "Signed in successfully",
+                user: {
+                    ...result.user,
+                    role: userRole
+                },
+                accessToken: dbAccessToken || result.token,
+                token: result.token,
+                userType: userRole
+            });
+        }
+        else {
+            res.status(401).json({ error: "Invalid email or password" });
+        }
+    }
+    catch (error) {
+        console.error("Signin error:", error);
+        res.status(401).json({ error: error.message || "Authentication failed" });
+    }
+});
 router.post("/signup", async (req, res) => {
     try {
         const { email, password, name, role, invitationCode } = req.body;

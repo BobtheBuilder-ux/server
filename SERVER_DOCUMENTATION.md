@@ -20,7 +20,9 @@ Handles user registration, login, role validation, and identity verification.
 The core authentication is handled by Better Auth, mounted at `/api/auth/*`.
 
 ### Session & Identity Endpoints
+- **POST `/api/auth/signin`**: Sign in with email and password. Returns user profile (with role), session data, `userType`, and an `accessToken` (sourced from the `Account` table if available, or the session token).
 - **GET `/api/auth/session`**: Get the current session, user profile, `userType` (role), and `token`. This endpoint is used by the frontend to verify authentication status, determine the user's role across the platform, and retrieve the session token for client-side use.
+- **POST `/api/auth/signup`**: General signup endpoint that routes to role-based registration. Requires `email`, `password`, `name`, and `role`.
 - **POST `/api/auth/register/landlord`**: Register a new landlord.
 - **POST `/api/auth/register/agent`**: Register a new agent (requires registration code).
 - **POST `/api/auth/cleanup/delete-on-refresh`**: Deletes unverified user accounts immediately on page refresh.

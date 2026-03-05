@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { eq, and, gte, desc, count, sql } from "drizzle-orm";
+import { eq, and, gte, desc, count, sql, or } from "drizzle-orm";
 import { db } from "../utils/database";
 import { properties, tenants, landlords, applications, payments, leases, agents, admins, adminSettings, landlordRegistrationCodes, agentRegistrationCodes, tasks, users, locations, bloggers, adminAuditLogs } from "../db/schema";
 import { addToEmailList } from "../utils/emailSubscriptionService";
@@ -728,11 +728,15 @@ export const getAdmin = async (
     console.log("Getting admin with cognitoId:", cognitoId);
     
     const adminResult = await db.select({
+      id: admins.id,
       cognitoId: admins.cognitoId,
+      userId: admins.userId,
       name: admins.name,
       email: admins.email,
       phoneNumber: admins.phoneNumber,
-    }).from(admins).where(eq(admins.cognitoId, cognitoId)).limit(1);
+    }).from(admins)
+      .where(or(eq(admins.cognitoId, cognitoId), eq(admins.userId, cognitoId)))
+      .limit(1);
     const admin = adminResult[0] || null;
     console.log("Admin found:", admin);
 
@@ -767,6 +771,7 @@ export const getAgent = async (
     const agentResult = await db.select({
       id: agents.id,
       cognitoId: agents.cognitoId,
+      userId: agents.userId,
       name: agents.name,
       email: agents.email,
       phoneNumber: agents.phoneNumber,
@@ -774,8 +779,8 @@ export const getAgent = async (
       isOnboardingComplete: users.isOnboardingComplete,
     })
     .from(agents)
-    .leftJoin(users, eq(agents.cognitoId, users.id))
-    .where(eq(agents.cognitoId, cognitoId))
+    .leftJoin(users, or(eq(agents.cognitoId, users.id), eq(agents.userId, users.id)))
+    .where(or(eq(agents.cognitoId, cognitoId), eq(agents.userId, cognitoId)))
     .limit(1);
     const agent = agentResult[0] || null;
     console.log("Agent found:", agent);

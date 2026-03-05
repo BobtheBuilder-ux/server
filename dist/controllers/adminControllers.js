@@ -596,11 +596,15 @@ const getAdmin = async (req, res) => {
         const { cognitoId } = req.params;
         console.log("Getting admin with cognitoId:", cognitoId);
         const adminResult = await database_1.db.select({
+            id: schema_1.admins.id,
             cognitoId: schema_1.admins.cognitoId,
+            userId: schema_1.admins.userId,
             name: schema_1.admins.name,
             email: schema_1.admins.email,
             phoneNumber: schema_1.admins.phoneNumber,
-        }).from(schema_1.admins).where((0, drizzle_orm_1.eq)(schema_1.admins.cognitoId, cognitoId)).limit(1);
+        }).from(schema_1.admins)
+            .where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.admins.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.admins.userId, cognitoId)))
+            .limit(1);
         const admin = adminResult[0] || null;
         console.log("Admin found:", admin);
         if (!admin) {
@@ -627,6 +631,7 @@ const getAgent = async (req, res) => {
         const agentResult = await database_1.db.select({
             id: schema_1.agents.id,
             cognitoId: schema_1.agents.cognitoId,
+            userId: schema_1.agents.userId,
             name: schema_1.agents.name,
             email: schema_1.agents.email,
             phoneNumber: schema_1.agents.phoneNumber,
@@ -634,8 +639,8 @@ const getAgent = async (req, res) => {
             isOnboardingComplete: schema_1.users.isOnboardingComplete,
         })
             .from(schema_1.agents)
-            .leftJoin(schema_1.users, (0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, schema_1.users.id))
-            .where((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, cognitoId))
+            .leftJoin(schema_1.users, (0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, schema_1.users.id), (0, drizzle_orm_1.eq)(schema_1.agents.userId, schema_1.users.id)))
+            .where((0, drizzle_orm_1.or)((0, drizzle_orm_1.eq)(schema_1.agents.cognitoId, cognitoId), (0, drizzle_orm_1.eq)(schema_1.agents.userId, cognitoId)))
             .limit(1);
         const agent = agentResult[0] || null;
         console.log("Agent found:", agent);
